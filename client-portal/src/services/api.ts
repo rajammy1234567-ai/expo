@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,6 +17,26 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Global response interceptor to handle session expiry and unauthorized states
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const url = error.config?.url || '';
+      // Don't intercept intentional credential failures on login/register
+      if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
+        localStorage.removeItem('viz_auth_token');
+        window.dispatchEvent(
+          new CustomEvent('viz:session_expired', {
+            detail: { message: 'Session expired. Please sign in again to continue.' },
+          })
+        );
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const authApi = {
   login: (email: string, password: string) => api.post('/auth/login', { email, password }),

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { RequireAuth } from './components/RequireAuth';
 import { LoginModal } from './components/LoginModal';
+import { PublicLandingView } from './pages/PublicLandingView';
 import { InvestorExpoView } from './pages/InvestorExpoView';
 import { BrandDetailView } from './pages/BrandDetailView';
 import { BrandPortalView } from './pages/BrandPortalView';
 import { AdminDashboardView } from './pages/AdminDashboardView';
 import { MyDealsView } from './pages/MyDealsView';
 import { MyMeetingsView } from './pages/MyMeetingsView';
+import { UnauthorizedView } from './pages/UnauthorizedView';
 import { AIAssistantModal } from './components/AIAssistantModal';
 import { MeetingRequestModal } from './components/MeetingRequestModal';
 import { CompareModal } from './components/CompareModal';
@@ -16,50 +19,67 @@ import { InvestorProfileSetupModal } from './components/InvestorProfileSetupModa
 import { IBrand } from './types';
 
 const MainApp: React.FC = () => {
-  const { user, activePersona } = useAuth();
-  const [currentTab, setCurrentTab] = useState<'expo' | 'brand-portal' | 'admin-center' | 'my-deals' | 'my-meetings'>('expo');
-  const [selectedBrand, setSelectedBrand] = useState<IBrand | null>(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Modals state
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginPreferredRole, setLoginPreferredRole] = useState<'INVESTOR' | 'BRAND'>('INVESTOR');
+  const [loginInitialMode, setLoginInitialMode] = useState<'login' | 'register'>('login');
+
+  const [selectedBrand, setSelectedBrand] = useState<IBrand | null>(null);
   const [aiModalBrand, setAiModalBrand] = useState<IBrand | null>(null);
   const [meetingModalBrand, setMeetingModalBrand] = useState<IBrand | null>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
 
-  // When active persona/role changes, auto-route to the appropriate default view
+  // Clear brand detail view whenever route path changes
   useEffect(() => {
     setSelectedBrand(null);
-    if (activePersona === 'ADMIN') {
-      setCurrentTab('admin-center');
-    } else if (activePersona === 'BRAND') {
-      setCurrentTab('brand-portal');
-    } else {
-      setCurrentTab('expo');
-    }
-  }, [activePersona]);
+  }, [location.pathname]);
 
-  const getDefaultTabForRole = () => {
-    if (activePersona === 'ADMIN') return 'admin-center';
-    if (activePersona === 'BRAND') return 'brand-portal';
-    return 'expo';
+  // Open login modal automatically if redirected from RequireAuth
+  useEffect(() => {
+    if (location.state && (location.state as any).openSignIn) {
+      setLoginInitialMode('login');
+      setShowLoginModal(true);
+    }
+  }, [location.state]);
+
+  const handleLoginSuccess = (selectedRole: string) => {
+    setShowLoginModal(false);
+    const returnTo = (location.state as any)?.returnTo;
+    if (returnTo && returnTo !== '/' && returnTo !== '/unauthorized') {
+      navigate(returnTo);
+    } else {
+      const roleUpper = (selectedRole || '').toUpperCase();
+      if (roleUpper === 'ADMIN' || roleUpper === 'VIZ_ADMIN') {
+        navigate('/admin-dashboard');
+      } else if (roleUpper === 'BRAND' || roleUpper === 'BRAND_ADMIN') {
+        navigate('/brand-portal');
+      } else {
+        navigate('/expo-floor');
+      }
+    }
+  };
+
+  const handleOpenLogin = (preferredRole?: 'INVESTOR' | 'BRAND', mode: 'login' | 'register' = 'login') => {
+    if (preferredRole) setLoginPreferredRole(preferredRole);
+    setLoginInitialMode(mode);
+    setShowLoginModal(true);
   };
 
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans">
-      {/* Top Navbar */}
+      {/* Top Navigation Bar */}
       <Navbar
-        currentTab={currentTab}
-        setCurrentTab={(tab) => {
-          setSelectedBrand(null);
-          setCurrentTab(tab);
-        }}
         onOpenCompare={() => setShowCompareModal(true)}
         onOpenProfileSetup={() => setShowProfileSetup(true)}
-        onOpenLoginModal={() => setShowLoginModal(true)}
+        onOpenLoginModal={() => handleOpenLogin('INVESTOR', 'login')}
       />
 
-      {/* Main Content Container */}
+      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {selectedBrand ? (
           <BrandDetailView
@@ -69,57 +89,79 @@ const MainApp: React.FC = () => {
             onOpenMeeting={(b) => setMeetingModalBrand(b)}
           />
         ) : (
-          <>
-            {/* Public/Investor Expo Floor */}
-            {currentTab === 'expo' && (
-              <InvestorExpoView
-                onOpenAI={(b) => setAiModalBrand(b)}
-                onOpenMeeting={(b) => setMeetingModalBrand(b)}
-                onOpenDetails={(b) => setSelectedBrand(b)}
-                onOpenProfileSetup={() => setShowProfileSetup(true)}
-              />
-            )}
+          <Routes>
+            {/* 1. Public Landing Page at '/' */}
+            <Route
+              path="/"
+              element={
+                <PublicLandingView
+                  onOpenLogin={(role) => handleOpenLogin(role, role ? 'register' : 'login')}
+                  onOpenBrandDetails={(b) => setSelectedBrand(b)}
+                />
+              }
+            />
 
-            {/* Protected Brand Portal & CRM */}
-            {currentTab === 'brand-portal' && (
-              <ProtectedRoute
-                allowedRoles={['BRAND_ADMIN', 'VIZ_ADMIN']}
-                onNavigateHome={() => setCurrentTab(getDefaultTabForRole())}
-              >
-                <BrandPortalView />
-              </ProtectedRoute>
-            )}
+            {/* 2. Protected Expo Floor (Investor & Admin) */}
+            <Route
+              path="/expo-floor"
+              element={
+                <RequireAuth allowedRoles={['INVESTOR', 'VIZ_ADMIN']}>
+                  <InvestorExpoView
+                    onOpenAI={(b) => setAiModalBrand(b)}
+                    onOpenMeeting={(b) => setMeetingModalBrand(b)}
+                    onOpenDetails={(b) => setSelectedBrand(b)}
+                    onOpenProfileSetup={() => setShowProfileSetup(true)}
+                  />
+                </RequireAuth>
+              }
+            />
 
-            {/* Protected Super Admin Command Center */}
-            {currentTab === 'admin-center' && (
-              <ProtectedRoute
-                allowedRoles={['VIZ_ADMIN']}
-                onNavigateHome={() => setCurrentTab(getDefaultTabForRole())}
-              >
-                <AdminDashboardView />
-              </ProtectedRoute>
-            )}
+            {/* 3. Protected Brand Portal & CRM */}
+            <Route
+              path="/brand-portal"
+              element={
+                <RequireAuth allowedRoles={['BRAND_ADMIN', 'VIZ_ADMIN']}>
+                  <BrandPortalView />
+                </RequireAuth>
+              }
+            />
 
-            {/* Protected Investor Deals */}
-            {currentTab === 'my-deals' && (
-              <ProtectedRoute
-                allowedRoles={['INVESTOR']}
-                onNavigateHome={() => setCurrentTab(getDefaultTabForRole())}
-              >
-                <MyDealsView />
-              </ProtectedRoute>
-            )}
+            {/* 4. Protected Platform Admin Command Center */}
+            <Route
+              path="/admin-dashboard"
+              element={
+                <RequireAuth allowedRoles={['VIZ_ADMIN']}>
+                  <AdminDashboardView />
+                </RequireAuth>
+              }
+            />
 
-            {/* Protected Investor Scheduled Meetings */}
-            {currentTab === 'my-meetings' && (
-              <ProtectedRoute
-                allowedRoles={['INVESTOR']}
-                onNavigateHome={() => setCurrentTab(getDefaultTabForRole())}
-              >
-                <MyMeetingsView />
-              </ProtectedRoute>
-            )}
-          </>
+            {/* 5. Protected Deal Pipelines */}
+            <Route
+              path="/deals"
+              element={
+                <RequireAuth allowedRoles={['INVESTOR', 'BRAND_ADMIN', 'VIZ_ADMIN']}>
+                  <MyDealsView />
+                </RequireAuth>
+              }
+            />
+
+            {/* 6. Protected Meeting Schedules */}
+            <Route
+              path="/meetings"
+              element={
+                <RequireAuth allowedRoles={['INVESTOR', 'BRAND_ADMIN', 'VIZ_ADMIN']}>
+                  <MyMeetingsView />
+                </RequireAuth>
+              }
+            />
+
+            {/* 7. Dedicated 403 Forbidden Page */}
+            <Route path="/unauthorized" element={<UnauthorizedView />} />
+
+            {/* 8. Fallback: Unknown routes redirect to '/' */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         )}
       </main>
 
@@ -127,12 +169,9 @@ const MainApp: React.FC = () => {
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onSuccess={(selectedRole) => {
-          const roleUpper = (selectedRole || '').toUpperCase();
-          if (roleUpper === 'ADMIN' || roleUpper === 'VIZ_ADMIN') setCurrentTab('admin-center');
-          else if (roleUpper === 'BRAND' || roleUpper === 'BRAND_ADMIN') setCurrentTab('brand-portal');
-          else setCurrentTab('expo');
-        }}
+        onSuccess={handleLoginSuccess}
+        initialMode={loginInitialMode}
+        initialRole={loginPreferredRole}
       />
 
       {/* Grounded Brand AI Assistant Modal */}
@@ -154,7 +193,7 @@ const MainApp: React.FC = () => {
           onClose={() => setMeetingModalBrand(null)}
           onSuccess={() => {
             setMeetingModalBrand(null);
-            setCurrentTab('my-meetings');
+            navigate('/meetings');
           }}
         />
       )}
@@ -180,7 +219,7 @@ const MainApp: React.FC = () => {
           onClose={() => setShowProfileSetup(false)}
           onSaved={() => {
             setShowProfileSetup(false);
-            setCurrentTab('expo');
+            navigate('/expo-floor');
           }}
         />
       )}
@@ -190,9 +229,11 @@ const MainApp: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

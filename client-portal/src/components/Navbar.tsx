@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Sparkles,
@@ -13,23 +14,22 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
+  Home,
 } from 'lucide-react';
 
 interface NavbarProps {
-  currentTab: 'expo' | 'brand-portal' | 'admin-center' | 'my-deals' | 'my-meetings';
-  setCurrentTab: (tab: 'expo' | 'brand-portal' | 'admin-center' | 'my-deals' | 'my-meetings') => void;
   onOpenCompare: () => void;
   onOpenProfileSetup: () => void;
   onOpenLoginModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
-  setCurrentTab,
   onOpenCompare,
   onOpenProfileSetup,
   onOpenLoginModal,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, role, activePersona, logout, compareBrandIds } = useAuth();
 
   const getRoleBadge = () => {
@@ -56,6 +56,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const badge = getRoleBadge();
+
+  const handleLogoClick = () => {
+    if (!user) {
+      navigate('/');
+    } else if (activePersona === 'ADMIN') {
+      navigate('/admin-dashboard');
+    } else if (activePersona === 'BRAND') {
+      navigate('/brand-portal');
+    } else {
+      navigate('/expo-floor');
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#07090e]/95 backdrop-blur-xl">
@@ -96,14 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
-        <div
-          className="flex items-center gap-3 cursor-pointer"
-          onClick={() => {
-            if (activePersona === 'ADMIN') setCurrentTab('admin-center');
-            else if (activePersona === 'BRAND') setCurrentTab('brand-portal');
-            else setCurrentTab('expo');
-          }}
-        >
+        <div className="flex items-center gap-3 cursor-pointer" onClick={handleLogoClick}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 font-black text-xl text-white">
             V
           </div>
@@ -120,13 +132,42 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Role-Specific Center Navigation Tabs */}
         <nav className="hidden md:flex items-center gap-1">
-          {/* INVESTOR NAVBAR */}
-          {activePersona === 'INVESTOR' && (
+          {/* GUEST / LOGGED-OUT NAVBAR */}
+          {!user && (
             <>
               <button
-                onClick={() => setCurrentTab('expo')}
+                onClick={() => navigate('/')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'expo'
+                  isActive('/')
+                    ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                }`}
+              >
+                <Home className="w-3.5 h-3.5 inline mr-1.5" />
+                <span>Home</span>
+              </button>
+              <button
+                onClick={onOpenLoginModal}
+                className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 transition-all"
+              >
+                🎬 Verified Expo Floor
+              </button>
+              <button
+                onClick={onOpenLoginModal}
+                className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 transition-all"
+              >
+                🏢 Franchisor Portal
+              </button>
+            </>
+          )}
+
+          {/* INVESTOR NAVBAR */}
+          {user && activePersona === 'INVESTOR' && (
+            <>
+              <button
+                onClick={() => navigate('/expo-floor')}
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive('/expo-floor')
                     ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
@@ -134,9 +175,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 🎬 Expo Floor
               </button>
               <button
-                onClick={() => setCurrentTab('my-meetings')}
+                onClick={() => navigate('/meetings')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'my-meetings'
+                  isActive('/meetings')
                     ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
@@ -144,9 +185,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 📅 My Meetings
               </button>
               <button
-                onClick={() => setCurrentTab('my-deals')}
+                onClick={() => navigate('/deals')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'my-deals'
+                  isActive('/deals')
                     ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
@@ -157,12 +198,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {/* BRAND NAVBAR */}
-          {activePersona === 'BRAND' && (
+          {user && activePersona === 'BRAND' && (
             <>
               <button
-                onClick={() => setCurrentTab('brand-portal')}
+                onClick={() => navigate('/brand-portal')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'brand-portal'
+                  isActive('/brand-portal')
                     ? 'text-purple-300 bg-purple-950/40 border border-purple-800/50 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
@@ -170,40 +211,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                 🏢 Brand Portal (CRM)
               </button>
               <button
-                onClick={() => setCurrentTab('expo')}
+                onClick={() => navigate('/deals')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'expo'
-                    ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
+                  isActive('/deals')
+                    ? 'text-purple-300 bg-purple-950/40 border border-purple-800/50 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
-                🎬 View Public Booth Floor
+                🤝 Brand Deals & Invoices
               </button>
             </>
           )}
 
           {/* ADMIN NAVBAR */}
-          {activePersona === 'ADMIN' && (
+          {user && activePersona === 'ADMIN' && (
             <>
               <button
-                onClick={() => setCurrentTab('admin-center')}
+                onClick={() => navigate('/admin-dashboard')}
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'admin-center'
+                  isActive('/admin-dashboard')
                     ? 'text-amber-300 bg-amber-950/40 border border-amber-800/50 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
                 }`}
               >
                 👑 Command Center & 3% Ledger
-              </button>
-              <button
-                onClick={() => setCurrentTab('expo')}
-                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  currentTab === 'expo'
-                    ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
-                }`}
-              >
-                🎬 Preview Expo Floor
               </button>
             </>
           )}
@@ -212,7 +243,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right Actions */}
         <div className="flex items-center gap-3">
           {/* Multi-Brand Compare Trigger (Investor Only) */}
-          {activePersona === 'INVESTOR' && compareBrandIds.length > 0 && (
+          {user && activePersona === 'INVESTOR' && compareBrandIds.length > 0 && (
             <button
               onClick={onOpenCompare}
               className="relative px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/30 animate-pulse"
@@ -223,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {/* Matchmaking Profile Trigger (Investor Only) */}
-          {activePersona === 'INVESTOR' && (
+          {user && activePersona === 'INVESTOR' && (
             <button
               onClick={onOpenProfileSetup}
               className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all"
@@ -244,7 +275,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <p className="text-[10px] text-slate-400 font-medium leading-tight">{user?.role}</p>
               </div>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 title="Log Out"
                 className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900 transition-colors ml-1"
               >
@@ -252,13 +283,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
           ) : (
-            <button
-              onClick={onOpenLoginModal}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onOpenLoginModal}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

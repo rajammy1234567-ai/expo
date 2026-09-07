@@ -1,23 +1,38 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Brand } from '../models/Brand';
 import { BrandKnowledgeBase } from '../models/BrandKnowledgeBase';
 import { inMemoryStore } from '../store/inMemoryStore';
+import { AuthRequest, getActiveUserBrandId } from '../middlewares/authMiddleware';
 
 export class BrandController {
-  static async getBrands(req: Request, res: Response) {
+  /**
+   * Get brands for Expo Floor with strict verification scoping:
+   * - Investors and public visitors ONLY see VERIFIED brands.
+   * - Only VIZ_ADMIN can view unverified/pending brands.
+   */
+  static async getBrands(req: AuthRequest, res: Response) {
     try {
-      const { category, budgetBracket, model, search, featuredOnly, verifiedOnly = 'true' } = req.query;
+      const { category, budgetBracket, model, search, featuredOnly } = req.query;
+
+      // Data Scoping: Only VIZ_ADMIN can bypass verifiedOnly
+      const callerRole = req.user?.role;
+      const isPlatformAdmin = callerRole === 'VIZ_ADMIN';
+      const verifiedOnly = isPlatformAdmin && req.query.verifiedOnly === 'false' ? 'false' : 'true';
 
       let brands: any[] = [];
-      try {
-        const query: any = {};
-        if (verifiedOnly === 'true') query.verificationStatus = 'VERIFIED';
-        if (category && category !== 'All') query.category = new RegExp(`^${category}$`, 'i');
-        if (model && model !== 'All') query.businessModel = model;
-        if (featuredOnly === 'true') query.isFeatured = true;
-        brands = await Brand.find(query).sort({ isFeatured: -1, featuredRank: -1, createdAt: -1 });
-      } catch (e) {
-        // Fallback to inMemoryStore
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const query: any = {};
+          if (verifiedOnly === 'true') query.verificationStatus = 'VERIFIED';
+          if (category && category !== 'All') query.category = new RegExp(`^${category}$`, 'i');
+          if (model && model !== 'All') query.businessModel = model;
+          if (featuredOnly === 'true') query.isFeatured = true;
+          brands = await Brand.find(query).sort({ isFeatured: -1, featuredRank: -1, createdAt: -1 });
+        } catch (e) {
+          brands = inMemoryStore.brands;
+        }
+      } else {
         brands = inMemoryStore.brands;
       }
 
@@ -38,20 +53,33 @@ export class BrandController {
       }
       if (search) {
         const s = (search as string).toLowerCase();
-        filtered = filtered.filter((b) =>
-          b.brandName?.toLowerCase().includes(s) ||
-          b.description?.toLowerCase().includes(s) ||
-          b.category?.toLowerCase().includes(s)
+        filtered = filtered.filter(
+          (b) =>
+            b.brandName?.toLowerCase().includes(s) ||
+            b.description?.toLowerCase().includes(s) ||
+            b.category?.toLowerCase().includes(s)
         );
       }
       if (budgetBracket) {
         switch (budgetBracket) {
-          case 'UNDER_5L': filtered = filtered.filter((b) => b.investmentRange?.minINR <= 500000); break;
-          case '5L_10L': filtered = filtered.filter((b) => b.investmentRange?.minINR <= 1000000 && b.investmentRange?.maxINR >= 500000); break;
-          case '10L_25L': filtered = filtered.filter((b) => b.investmentRange?.minINR <= 2500000 && b.investmentRange?.maxINR >= 1000000); break;
-          case '25L_50L': filtered = filtered.filter((b) => b.investmentRange?.minINR <= 5000000 && b.investmentRange?.maxINR >= 2500000); break;
-          case '50L_1CR': filtered = filtered.filter((b) => b.investmentRange?.minINR <= 10000000 && b.investmentRange?.maxINR >= 5000000); break;
-          case '1CR_PLUS': filtered = filtered.filter((b) => b.investmentRange?.maxINR >= 10000000); break;
+          case 'UNDER_5L':
+            filtered = filtered.filter((b) => b.investmentRange?.minINR <= 500000);
+            break;
+          case '5L_10L':
+            filtered = filtered.filter((b) => b.investmentRange?.minINR <= 1000000 && b.investmentRange?.maxINR >= 500000);
+            break;
+          case '10L_25L':
+            filtered = filtered.filter((b) => b.investmentRange?.minINR <= 2500000 && b.investmentRange?.maxINR >= 1000000);
+            break;
+          case '25L_50L':
+            filtered = filtered.filter((b) => b.investmentRange?.minINR <= 5000000 && b.investmentRange?.maxINR >= 2500000);
+            break;
+          case '50L_1CR':
+            filtered = filtered.filter((b) => b.investmentRange?.minINR <= 10000000 && b.investmentRange?.maxINR >= 5000000);
+            break;
+          case '1CR_PLUS':
+            filtered = filtered.filter((b) => b.investmentRange?.maxINR >= 10000000);
+            break;
         }
       }
 
@@ -61,7 +89,8 @@ export class BrandController {
         brands: filtered,
       });
     } catch (error: any) {
-      return res.json({ success: true, count: inMemoryStore.brands.length, brands: inMemoryStore.brands });
+      const verified = inMemoryStore.brands.filter((b) => b.verificationStatus === 'VERIFIED');
+      return res.json({ success: true, count: verified.length, brands: verified });
     }
   }
 
@@ -103,11 +132,13 @@ export class BrandController {
     }
   }
 
-  static async createBrand(req: any, res: Response) {
+  static async createBrand(req: AuthRequest, res: Response) {
     const brandData = req.body;
     const count = inMemoryStore.brands.length + 1;
+    const newBrandId = `65e0000000000000000000${String(count).padStart(2, '0')}`;
     const newBrand = {
-      _id: `65e0000000000000000000${String(count).padStart(2, '0')}`,
+      _id: newBrandId,
+      ownerUserId: req.user?.userId,
       slug: (brandData.brandName || 'new-brand').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       brandName: brandData.brandName || 'New Franchise Brand',
       tagline: brandData.tagline || '',
@@ -118,7 +149,7 @@ export class BrandController {
       bannerUrl: brandData.bannerUrl || 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=1200&h=600&fit=crop',
       pitchVideoUrl: brandData.pitchVideoUrl || '',
       galleryUrls: brandData.galleryUrls || [],
-      verificationStatus: 'VERIFIED',
+      verificationStatus: 'PENDING',
       isFeatured: false,
       investmentRange: brandData.investmentRange || { minINR: 1000000, maxINR: 2000000, displayString: '₹10L – ₹20L' },
       franchiseFeeINR: brandData.franchiseFeeINR || 300000,
@@ -139,20 +170,66 @@ export class BrandController {
     return res.status(201).json({ success: true, message: 'Brand created successfully', brand: newBrand });
   }
 
-  static async updateBrandBooth(req: any, res: Response) {
+  /**
+   * Update Digital Booth:
+   * - STRICT OWNERSHIP: Brand Admin can only update their own booth.
+   * - ADMIN SAFEGUARD: Admins cannot edit brand booths (audit/view-only).
+   */
+  static async updateBrandBooth(req: AuthRequest, res: Response) {
     const { brandId } = req.params;
     const updates = req.body;
+
+    if (req.user?.role === 'VIZ_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Admins have audit-only access and cannot edit brand booth details. Only the franchisor brand partner can edit their booth.',
+      });
+    }
+
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      if (brandId !== userBrandId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Access denied. You can only update your own brand digital booth.',
+        });
+      }
+    }
+
     const index = inMemoryStore.brands.findIndex((b) => b._id === brandId);
     if (index > -1) {
       inMemoryStore.brands[index] = { ...inMemoryStore.brands[index], ...updates };
       return res.json({ success: true, message: 'Digital booth updated', brand: inMemoryStore.brands[index] });
     }
-    return res.json({ success: true, message: 'Booth updated', brand: updates });
+    return res.status(404).json({ success: false, message: 'Brand not found' });
   }
 
-  static async addKBChunk(req: any, res: Response) {
+  /**
+   * Add KB Chunk:
+   * - STRICT OWNERSHIP: Brand Admin can only add/edit KB for their own brand.
+   * - ADMIN SAFEGUARD: Admins cannot edit brand KB.
+   */
+  static async addKBChunk(req: AuthRequest, res: Response) {
     const { brandId } = req.params;
     const { title, question, answer, content, sourceType } = req.body;
+
+    if (req.user?.role === 'VIZ_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Admins have audit-only access. Only the franchisor brand partner can modify their AI knowledge base.',
+      });
+    }
+
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      if (brandId !== userBrandId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Access denied. You can only add knowledge base chunks to your own brand.',
+        });
+      }
+    }
+
     const newChunk = {
       _id: `65e6000000000000000000${inMemoryStore.knowledgeBases.length + 10}`,
       brandId,

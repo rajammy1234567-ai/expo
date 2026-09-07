@@ -1,12 +1,25 @@
 import { Response } from 'express';
 import { inMemoryStore } from '../store/inMemoryStore';
+import { AuthRequest, getActiveUserBrandId } from '../middlewares/authMiddleware';
 
 export class LeadController {
-  static async createLead(req: any, res: Response) {
-    const investorId = req.user?.userId || inMemoryStore.users[0]?._id || 'guest_investor';
+  /**
+   * Investor creates an enquiry / lead at a brand's booth
+   */
+  static async createLead(req: AuthRequest, res: Response) {
+    const investorId = req.user?.userId;
+    if (!investorId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     const { brandId, source = 'BOOTH_DISCOVERY', note } = req.body;
     const brand = inMemoryStore.brands.find((b) => b._id === brandId) || inMemoryStore.brands[0] || null;
-    const user = inMemoryStore.users.find((u) => u._id === investorId) || inMemoryStore.users[0] || { name: 'Investor User', phone: '', email: '' };
+    const user = inMemoryStore.users.find((u) => u._id === investorId) || {
+      _id: investorId,
+      name: req.user?.name || 'Investor User',
+      phone: '',
+      email: req.user?.email || '',
+    };
 
     const lead = {
       _id: `65e3000000000000000000${inMemoryStore.leads.length + 10}`,
@@ -33,9 +46,27 @@ export class LeadController {
     return res.json({ success: true, message: 'Lead created', lead });
   }
 
-  static async getBrandLeads(req: any, res: Response) {
+  /**
+   * Brand Admin views leads for their brand.
+   * STRICT DATA SCOPING: Brand Admin cannot view leads of another brand by changing brandId in URL.
+   */
+  static async getBrandLeads(req: AuthRequest, res: Response) {
     const { brandId } = req.params;
-    const leads = inMemoryStore.leads.filter((l) => l.brandId?._id === brandId || l.brandId === brandId);
+
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      if (brandId !== userBrandId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Access denied. You can only view leads for your own brand.',
+        });
+      }
+    }
+
+    const effectiveBrandId = req.user?.role === 'BRAND_ADMIN' ? getActiveUserBrandId(req) : brandId;
+    const leads = inMemoryStore.leads.filter(
+      (l) => l.brandId?._id === effectiveBrandId || l.brandId === effectiveBrandId
+    );
 
     return res.json({
       success: true,
@@ -50,25 +81,55 @@ export class LeadController {
     });
   }
 
-  static async updateLeadStage(req: any, res: Response) {
+  /**
+   * Update lead stage in Kanban CRM (Brand Admin can only update their own leads)
+   */
+  static async updateLeadStage(req: AuthRequest, res: Response) {
     const { leadId } = req.params;
     const { status, note, closedDealValueINR } = req.body;
+
     const lead = inMemoryStore.leads.find((l) => l._id === leadId);
-    if (lead) {
-      lead.status = status;
-      if (closedDealValueINR) lead.closedDealValueINR = closedDealValueINR;
-      if (note) lead.brandInternalNotes.push(note);
-      lead.stageHistory.push({ stage: status, updatedAt: new Date().toISOString(), note });
-      return res.json({ success: true, message: `Moved to ${status}`, lead });
+    if (!lead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
     }
-    return res.status(404).json({ success: false, message: 'Lead not found' });
+
+    // Ownership check: Lead must belong to the caller's brand
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      const isLeadOwner = lead.brandId?._id === userBrandId || lead.brandId === userBrandId;
+      if (!isLeadOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You can only update leads for your own brand.',
+        });
+      }
+    }
+
+    lead.status = status;
+    if (closedDealValueINR) lead.closedDealValueINR = closedDealValueINR;
+    if (note) lead.brandInternalNotes.push(note);
+    lead.stageHistory.push({ stage: status, updatedAt: new Date().toISOString(), note });
+    return res.json({ success: true, message: `Moved to ${status}`, lead });
   }
 
-  static async getInvestorDeals(req: any, res: Response) {
+  /**
+   * Investor views only their own deals/enquiries
+   */
+  static async getInvestorDeals(req: AuthRequest, res: Response) {
+    const callerId = req.user?.userId;
+    const callerEmail = req.user?.email;
+
+    const investorLeads = inMemoryStore.leads.filter(
+      (l) =>
+        l.investorId?._id === callerId ||
+        l.investorId === callerId ||
+        (callerEmail && l.investorId?.email === callerEmail)
+    );
+
     return res.json({
       success: true,
-      count: inMemoryStore.leads.length,
-      deals: inMemoryStore.leads,
+      count: investorLeads.length,
+      deals: investorLeads,
     });
   }
 }

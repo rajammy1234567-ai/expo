@@ -1,9 +1,13 @@
 import { Response } from 'express';
 import { inMemoryStore } from '../store/inMemoryStore';
 import { CommissionService } from '../services/commissionService';
+import { AuthRequest, getActiveUserBrandId, verifyBrandOwnership } from '../middlewares/authMiddleware';
 
 export class DealController {
-  static async recordDeal(req: any, res: Response) {
+  /**
+   * Record a new closed franchise deal (Brand Admin or VIZ Admin)
+   */
+  static async recordDeal(req: AuthRequest, res: Response) {
     const {
       brandId,
       investorId,
@@ -15,8 +19,25 @@ export class DealController {
       brandNotes,
     } = req.body;
 
-    const brand = inMemoryStore.brands.find((b) => b._id === brandId) || inMemoryStore.brands[0] || null;
-    const user = inMemoryStore.users.find((u) => u._id === investorId) || inMemoryStore.users[0] || { name: 'Investor User', phone: '', email: '' };
+    // Data Scoping: Brand Admin can only record deals for their own brand
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      if (brandId && brandId !== userBrandId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You can only record deals under your own brand.',
+        });
+      }
+    }
+
+    const effectiveBrandId = brandId || getActiveUserBrandId(req);
+    const brand = inMemoryStore.brands.find((b) => b._id === effectiveBrandId) || inMemoryStore.brands[0] || null;
+    const user = inMemoryStore.users.find((u) => u._id === investorId) || {
+      _id: investorId || 'guest_investor',
+      name: 'Investor User',
+      phone: '',
+      email: '',
+    };
     const financials = CommissionService.calculateDealCommission(Number(totalDealValueINR) || 3000000, Number(commissionRatePercentage) || 3.0);
 
     const count = inMemoryStore.deals.length + 1;
@@ -48,10 +69,24 @@ export class DealController {
     });
   }
 
-  static async getBrandDeals(req: any, res: Response) {
+  /**
+   * Get deals for a specific brand with ownership verification
+   */
+  static async getBrandDeals(req: AuthRequest, res: Response) {
     const { brandId } = req.params;
-    const deals = inMemoryStore.deals.filter((d) => d.brandId?._id === brandId || d.brandId === brandId);
 
+    // Data Scoping: Brand Admin can only view their own brand's deals
+    if (req.user?.role === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      if (brandId !== userBrandId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You cannot view deals belonging to another brand.',
+        });
+      }
+    }
+
+    const deals = inMemoryStore.deals.filter((d) => d.brandId?._id === brandId || d.brandId === brandId);
     const totalDealVolumeINR = deals.reduce((acc, d) => acc + d.totalDealValueINR, 0);
     const totalCommissionDueINR = deals.reduce((acc, d) => acc + d.calculatedCommissionINR, 0);
 
@@ -62,6 +97,37 @@ export class DealController {
         totalDealVolumeINR,
         totalCommissionDueINR,
       },
+      deals,
+    });
+  }
+
+  /**
+   * Generic get deals scoped by caller role:
+   * - INVESTOR: only deals involving this investor
+   * - BRAND_ADMIN: only deals involving this brand
+   * - VIZ_ADMIN: all platform deals
+   */
+  static async getDeals(req: AuthRequest, res: Response) {
+    const callerRole = req.user?.role;
+    const callerId = req.user?.userId;
+
+    let deals = inMemoryStore.deals;
+
+    if (callerRole === 'INVESTOR') {
+      deals = deals.filter(
+        (d) =>
+          d.investorId?._id === callerId ||
+          d.investorId === callerId ||
+          (req.user?.email && d.investorId?.email === req.user.email)
+      );
+    } else if (callerRole === 'BRAND_ADMIN') {
+      const userBrandId = getActiveUserBrandId(req);
+      deals = deals.filter((d) => d.brandId?._id === userBrandId || d.brandId === userBrandId);
+    }
+
+    return res.json({
+      success: true,
+      count: deals.length,
       deals,
     });
   }

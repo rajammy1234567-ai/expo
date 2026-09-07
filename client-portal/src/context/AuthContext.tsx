@@ -47,36 +47,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activePersona: 'INVESTOR' | 'BRAND' | 'ADMIN' = getPersonaFromRole(user?.role);
   const role: 'INVESTOR' | 'BRAND_ADMIN' | 'VIZ_ADMIN' | null = (user?.role as any) || null;
 
-  // Initialize Auth
+  // Initialize Auth deterministically
   useEffect(() => {
     const initAuth = async () => {
+      const storedToken = localStorage.getItem('viz_auth_token');
+      if (!storedToken) {
+        setUser(null);
+        setToken(null);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const storedToken = localStorage.getItem('viz_auth_token');
-        if (storedToken) {
-          const res = await authApi.getMe();
-          if (res.data.success) {
-            setUser(res.data.user);
-            setToken(storedToken);
-            setLoading(false);
-            return;
-          }
+        const res = await authApi.getMe();
+        if (res.data.success) {
+          setUser(res.data.user);
+          setToken(storedToken);
+        } else {
+          localStorage.removeItem('viz_auth_token');
+          setToken(null);
+          setUser(null);
         }
       } catch (err) {
-        console.warn('Existing session invalid or expired. Defaulting to demo investor.');
         localStorage.removeItem('viz_auth_token');
         setToken(null);
-      }
-      
-      // Default to demo investor if no valid token
-      try {
-        await loginWithRole('INVESTOR');
-      } catch (e) {
-        // ignore
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
+
     initAuth();
+
+    const handleSessionExpired = () => {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem('viz_auth_token');
+    };
+
+    window.addEventListener('viz:session_expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('viz:session_expired', handleSessionExpired);
+    };
   }, []);
 
   const loginWithPassword = async (email: string, password: string) => {

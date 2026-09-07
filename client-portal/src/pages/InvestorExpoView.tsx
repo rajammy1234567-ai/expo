@@ -66,6 +66,7 @@ export const InvestorExpoView: React.FC<InvestorExpoViewProps> = ({
 
   const loadBrandsAndMatches = async () => {
     setLoading(true);
+    const hasInvestorAuth = Boolean(localStorage.getItem('viz_auth_token') && user?.role === 'INVESTOR');
     try {
       const [brandsRes, matchesRes] = await Promise.all([
         brandApi.getBrands({
@@ -74,7 +75,9 @@ export const InvestorExpoView: React.FC<InvestorExpoViewProps> = ({
           model: selectedModel !== 'All' ? selectedModel : undefined,
           search: searchQuery || undefined,
         }),
-        investorApi.getMatches().catch(() => ({ data: { matches: [] } })),
+        hasInvestorAuth
+          ? investorApi.getMatches().catch(() => ({ data: { matches: [] } }))
+          : Promise.resolve({ data: { matches: [] } }),
       ]);
 
       if (brandsRes.data.success) {

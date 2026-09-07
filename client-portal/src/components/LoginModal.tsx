@@ -24,6 +24,7 @@ interface LoginModalProps {
   onClose: () => void;
   onSuccess: (role: string) => void;
   initialMode?: 'login' | 'register' | 'otp' | 'demo';
+  initialRole?: 'INVESTOR' | 'BRAND';
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -31,6 +32,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onSuccess,
   initialMode = 'login',
+  initialRole,
 }) => {
   const { loginWithPassword, registerUser, verifyOTPCode, loginWithRole } = useAuth();
 
@@ -75,8 +77,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       setSuccessToast('');
       setIsOtpStep(false);
       setDevOtpBadge(null);
+      if (initialRole) {
+        setRegRole(initialRole);
+      }
+      if (initialMode) {
+        setActiveTab(initialMode);
+      }
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen, initialRole, initialMode]);
 
   if (!isOpen) return null;
 
@@ -272,7 +280,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
         {/* Main Navigation Tabs (hidden during active OTP step) */}
         {!isOtpStep && (
-          <div className="grid grid-cols-4 p-1 rounded-2xl bg-slate-950 border border-slate-800 text-[11px] font-bold text-center">
+          <div className={`grid ${Boolean((import.meta as any).env?.DEV) ? 'grid-cols-4' : 'grid-cols-3'} p-1 rounded-2xl bg-slate-950 border border-slate-800 text-[11px] font-bold text-center`}>
             <button
               onClick={() => {
                 setActiveTab('login');
@@ -312,20 +320,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             >
               Phone OTP
             </button>
-            <button
-              onClick={() => {
-                setActiveTab('demo');
-                setErrorMsg('');
-              }}
-              className={`py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 ${
-                activeTab === 'demo'
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'text-amber-400 hover:text-amber-300'
-              }`}
-            >
-              <Zap className="w-3 h-3" />
-              <span>1-Click</span>
-            </button>
+            {Boolean((import.meta as any).env?.DEV) && (
+              <button
+                onClick={() => {
+                  setActiveTab('demo');
+                  setErrorMsg('');
+                }}
+                className={`py-2 px-1 rounded-xl transition-all flex items-center justify-center gap-1 ${
+                  activeTab === 'demo'
+                    ? 'bg-amber-600 text-white shadow'
+                    : 'text-amber-400 hover:text-amber-300'
+                }`}
+              >
+                <Zap className="w-3 h-3" />
+                <span>1-Click</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -423,9 +433,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
                       Password
                     </label>
-                    <span className="text-[10px] text-slate-500">
-                      Default test pass: <span className="font-mono text-slate-400">Password123</span>
-                    </span>
+                    {Boolean((import.meta as any).env?.DEV) && (
+                      <span className="text-[10px] text-slate-500">
+                        Default test pass: <span className="font-mono text-slate-400">Password123</span>
+                      </span>
+                    )}
                   </div>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />

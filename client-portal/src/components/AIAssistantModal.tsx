@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { IBrand } from '../types';
-import { aiApi } from '../services/api';
+const aiApi = {
+  askBrand: async (_id: string, _q: string) => ({
+    data: { success: false, answer: 'Direct human chat is now enabled.', sources: [], suggestMeeting: true }
+  }),
+  askBrandAI: async (_id: string, _q: string) => ({
+    data: { success: true, data: { answer: 'Direct human chat is now enabled. Please connect directly with the brand founder.', sources: [], suggestMeeting: true } }
+  })
+};
 import {
   Sparkles,
   X,

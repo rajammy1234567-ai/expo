@@ -49,7 +49,8 @@ export interface IBrand {
     agreedSuccessFeePercentage: number;
     isActive: boolean;
   };
-  aiBotSettings: {
+  ownerUserId?: string;
+  aiBotSettings?: {
     isEnabled: boolean;
     botName: string;
     welcomeMessage: string;
@@ -91,6 +92,9 @@ export interface ILead {
     budgetBracket: string;
     experienceYears: number;
   };
+  investorName?: string;
+  investorPhone?: string;
+  preferredCity?: string;
   brandInternalNotes: string[];
   dealValueEstimatedINR?: number;
   closedDealValueINR?: number;
@@ -142,6 +146,7 @@ export interface IDealCommission {
 
 export interface IUser {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   phone: string;

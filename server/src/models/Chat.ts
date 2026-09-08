@@ -1,65 +1,63 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IChatMessage extends Document {
+export interface IMessage extends Document {
   conversationId: mongoose.Types.ObjectId;
   senderId: mongoose.Types.ObjectId;
-  senderRole: string;
-  messageType: 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'MEETING_CARD' | 'AI_SUGGESTION';
-  content: string;
-  mediaUrl?: string;
-  metadata?: Record<string, any>;
-  readBy: mongoose.Types.ObjectId[];
+  receiverId: mongoose.Types.ObjectId;
+  text: string;
+  imageUrl?: string;
+  mediaThumbnailUrl?: string;
+  status: 'SENT' | 'DELIVERED' | 'SEEN';
   createdAt: Date;
 }
 
-const ChatMessageSchema = new Schema<IChatMessage>(
+const MessageSchema = new Schema<IMessage>(
   {
-    conversationId: { type: Schema.Types.ObjectId, ref: 'ChatConversation', required: true },
-    senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    senderRole: { type: String, default: 'INVESTOR' },
-    messageType: {
+    conversationId: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true, index: true },
+    senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    receiverId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    text: { type: String, default: '' },
+    imageUrl: { type: String },
+    mediaThumbnailUrl: { type: String },
+    status: {
       type: String,
-      enum: ['TEXT', 'IMAGE', 'DOCUMENT', 'MEETING_CARD', 'AI_SUGGESTION'],
-      default: 'TEXT',
+      enum: ['SENT', 'DELIVERED', 'SEEN'],
+      default: 'SENT',
+      index: true,
     },
-    content: { type: String, required: true },
-    mediaUrl: { type: String },
-    metadata: { type: Schema.Types.Mixed },
-    readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );
 
-export const ChatMessage = mongoose.model<IChatMessage>('ChatMessage', ChatMessageSchema);
+MessageSchema.index({ conversationId: 1, createdAt: -1 });
 
-export interface IChatConversation extends Document {
+export const Message = mongoose.model<IMessage>('Message', MessageSchema);
+
+export interface IConversation extends Document {
   participants: mongoose.Types.ObjectId[];
-  brandId: mongoose.Types.ObjectId;
-  leadId?: mongoose.Types.ObjectId;
-  lastMessage?: {
-    text: string;
-    senderId: mongoose.Types.ObjectId;
-    createdAt: Date;
-  };
+  relatedBrandId?: mongoose.Types.ObjectId;
+  lastMessage?: string;
+  lastMessageAt?: Date;
+  unreadCount?: Map<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const ChatConversationSchema = new Schema<IChatConversation>(
+const ConversationSchema = new Schema<IConversation>(
   {
-    participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
-    brandId: { type: Schema.Types.ObjectId, ref: 'Brand', required: true },
-    leadId: { type: Schema.Types.ObjectId, ref: 'Lead' },
-    lastMessage: {
-      text: { type: String },
-      senderId: { type: Schema.Types.ObjectId, ref: 'User' },
-      createdAt: { type: Date },
-    },
+    participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true, index: true }],
+    relatedBrandId: { type: Schema.Types.ObjectId, ref: 'Brand' },
+    lastMessage: { type: String, default: '' },
+    lastMessageAt: { type: Date, default: Date.now },
+    unreadCount: { type: Map, of: Number, default: {} },
   },
   { timestamps: true }
 );
 
-export const ChatConversation = mongoose.model<IChatConversation>(
-  'ChatConversation',
-  ChatConversationSchema
-);
+ConversationSchema.index({ updatedAt: -1 });
+
+export const Conversation = mongoose.model<IConversation>('Conversation', ConversationSchema);
+
+// Backwards compatibility aliases
+export const ChatMessage = Message;
+export const ChatConversation = Conversation;

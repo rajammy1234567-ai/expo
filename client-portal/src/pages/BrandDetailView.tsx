@@ -18,19 +18,20 @@ import {
   FileText,
   HelpCircle,
   Image,
+  MessageSquare,
 } from 'lucide-react';
 
 interface BrandDetailViewProps {
   brand: IBrand;
   onBack: () => void;
-  onOpenAI: (brand: IBrand) => void;
+  onOpenChat: (brand: IBrand) => void;
   onOpenMeeting: (brand: IBrand) => void;
 }
 
 export const BrandDetailView: React.FC<BrandDetailViewProps> = ({
   brand,
   onBack,
-  onOpenAI,
+  onOpenChat,
   onOpenMeeting,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'support' | 'faq' | 'gallery'>('overview');
@@ -318,11 +319,11 @@ export const BrandDetailView: React.FC<BrandDetailViewProps> = ({
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
-              onClick={() => onOpenAI(brand)}
+              onClick={() => onOpenChat(brand)}
               className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all"
             >
-              <Sparkles className="w-4 h-4 text-blue-400" />
-              <span>Ask AI Bot</span>
+              <MessageSquare className="w-4 h-4 text-blue-400" />
+              <span>Chat with Founder</span>
             </button>
 
             <button

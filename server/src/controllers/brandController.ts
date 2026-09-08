@@ -132,13 +132,44 @@ export class BrandController {
     }
   }
 
+  static async getMyListings(req: AuthRequest, res: Response) {
+    try {
+      const userBrandId = getActiveUserBrandId(req);
+      const userId = req.user?.userId;
+
+      let brands: any[] = [];
+      if (mongoose.connection.readyState === 1) {
+        brands = await Brand.find({
+          $or: [
+            ...(userId ? [{ ownerUserId: userId }] : []),
+            ...(userBrandId ? [{ _id: userBrandId }] : []),
+          ],
+        }).sort({ createdAt: -1 }).lean();
+      } else {
+        brands = inMemoryStore.brands.filter(
+          (b) => (userId && b.ownerUserId === userId) || (userBrandId && b._id === userBrandId)
+        );
+      }
+
+      if (brands.length === 0) {
+        // Fallback to active brand
+        const active = inMemoryStore.brands.find((b) => b._id === userBrandId) || inMemoryStore.brands[0];
+        if (active) brands = [active];
+      }
+
+      return res.json({ success: true, count: brands.length, brands });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
   static async createBrand(req: AuthRequest, res: Response) {
     const brandData = req.body;
     const count = inMemoryStore.brands.length + 1;
     const newBrandId = `65e0000000000000000000${String(count).padStart(2, '0')}`;
     const newBrand = {
       _id: newBrandId,
-      ownerUserId: req.user?.userId,
+      ownerUserId: req.user?.userId || '65e100000000000000000002',
       slug: (brandData.brandName || 'new-brand').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       brandName: brandData.brandName || 'New Franchise Brand',
       tagline: brandData.tagline || '',
@@ -162,12 +193,35 @@ export class BrandController {
       yearEstablished: brandData.yearEstablished || new Date().getFullYear(),
       supportOffered: brandData.supportOffered || { siteSelection: true, staffTraining: true, marketingSupport: true },
       subscription: { tier: 'PREMIUM_BOOTH', agreedSuccessFeePercentage: 3.0, isActive: true },
-      aiBotSettings: { isEnabled: true, botName: `${brandData.brandName || 'Brand'} AI` },
       createdAt: new Date().toISOString(),
     };
 
-    inMemoryStore.brands.push(newBrand);
-    return res.status(201).json({ success: true, message: 'Brand created successfully', brand: newBrand });
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Brand.create(newBrand);
+      } catch (err) {
+        console.warn('Mongo save failed, kept in memory:', err);
+      }
+    }
+
+    inMemoryStore.brands.unshift(newBrand);
+
+    // Notify VIZ Admin
+    const io = (req as any).io;
+    const adminUser = inMemoryStore.users.find((u) => u.role === 'VIZ_ADMIN');
+    if (adminUser) {
+      const { sendNotification } = require('./notificationController');
+      sendNotification(io, {
+        userId: adminUser._id,
+        type: 'VERIFICATION',
+        title: 'New Franchise Submitted for KYC Review',
+        body: `${newBrand.brandName} (${newBrand.category}) submitted a new franchise booth.`,
+        relatedId: newBrand._id,
+        deepLink: '/admin-dashboard',
+      });
+    }
+
+    return res.status(201).json({ success: true, message: 'Franchise booth submitted for verification!', brand: newBrand });
   }
 
   /**

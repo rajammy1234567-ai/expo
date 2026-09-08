@@ -88,6 +88,7 @@ export const meetingApi = {
 
 export const dealApi = {
   recordDeal: (data: any) => api.post('/deals/record', data),
+  createDeal: (data: any) => api.post('/deals/create', data),
   getBrandDeals: (brandId: string) => api.get(`/deals/brand/${brandId}`),
 };
 
@@ -97,9 +98,33 @@ export const adminApi = {
   updateCommission: (dealId: string, data: any) => api.put(`/admin/deal/${dealId}/commission`, data),
 };
 
-export const aiApi = {
-  askBrandAI: (brandId: string, question: string) => api.post('/ai/ask-brand', { brandId, question }),
-  matchInvestor: (data: any) => api.post('/ai/match-investor', data),
+export const chatApi = {
+  getConversations: (userId?: string) => api.get('/chats', { params: { userId } }),
+  startConversation: (targetUserId: string, relatedBrandId?: string, userId?: string) =>
+    api.post('/chats/start', { targetUserId, relatedBrandId, userId }),
+  getMessages: (conversationId: string) => api.get(`/chats/${conversationId}/messages`),
+  sendMessage: (conversationId: string, data: { receiverId: string; text?: string; imageUrl?: string; senderId?: string }) =>
+    api.post(`/chats/${conversationId}/messages`, data),
+  markAsRead: (conversationId: string, userId?: string) =>
+    api.put(`/chats/${conversationId}/read`, { userId }),
+};
+
+export const notificationApi = {
+  getNotifications: (userId?: string) => api.get('/notifications', { params: { userId } }),
+  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: (userId?: string) => api.put('/notifications/read-all', { userId }),
+};
+
+export const uploadApi = {
+  uploadImage: (imageBase64: string, filename?: string) =>
+    api.post('/upload/image', { imageBase64, filename }),
+};
+
+export const brandManageApi = {
+  createListing: (data: any) => api.post('/brands/create', data),
+  updateListing: (brandId: string, data: any) => api.put(`/brands/${brandId}/update`, data),
+  getMyListings: () => api.get('/brands/my-listings'),
 };
 
 export default api;
+

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Brand, IBrand } from '../models/Brand';
 import { BrandKnowledgeBase, IBrandKnowledgeBase } from '../models/BrandKnowledgeBase';
 import { inMemoryStore } from '../store/inMemoryStore';
@@ -22,16 +23,18 @@ export class AIRagService {
     let brand: any = null;
     let kbRecords: any[] = [];
 
-    try {
-      brand = await Brand.findById(brandId);
-      if (brand) {
-        kbRecords = await BrandKnowledgeBase.find({
-          brandId: brand._id,
-          isApprovedByAdmin: true,
-        });
+    if (mongoose.connection.readyState === 1) {
+      try {
+        brand = await Brand.findById(brandId);
+        if (brand) {
+          kbRecords = await BrandKnowledgeBase.find({
+            brandId: brand._id,
+            isApprovedByAdmin: true,
+          });
+        }
+      } catch (e) {
+        // Fallback
       }
-    } catch (e) {
-      // Fallback
     }
 
     if (!brand) {
@@ -43,7 +46,13 @@ export class AIRagService {
       return {
         answer: 'Yeh brand abhi VIZ platform par available nahi hai.',
         sources: [],
-        isGroundedInKnowledgeBase: false,
+        suggestMeeting: false,
+        brandSnapshot: {
+          name: '',
+          investment: '',
+          area: '',
+          model: '',
+        },
       };
     }
 

@@ -215,6 +215,80 @@ export const initialDeals: any[] = [
   },
 ];
 
+export const initialConversations: any[] = [
+  {
+    _id: '65e600000000000000000001',
+    participants: ['65e100000000000000000001', '65e100000000000000000002'], // Rohit Sharma & Vikramaditya (Chai Shai Express)
+    relatedBrandId: '65e000000000000000000001',
+    lastMessage: 'Namaste Rohit ji! We have prime locations available in Sector 35 Chandigarh.',
+    lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
+    unreadCount: {
+      '65e100000000000000000001': 0,
+      '65e100000000000000000002': 0,
+    },
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
+
+export const initialMessages: any[] = [
+  {
+    _id: '65e700000000000000000001',
+    conversationId: '65e600000000000000000001',
+    senderId: '65e100000000000000000001',
+    receiverId: '65e100000000000000000002',
+    text: 'Hello! I am Rohit, exploring Chai Shai Express franchise for Chandigarh Tricity with ₹50L budget.',
+    status: 'SEEN',
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    _id: '65e700000000000000000002',
+    conversationId: '65e600000000000000000001',
+    senderId: '65e100000000000000000002',
+    receiverId: '65e100000000000000000001',
+    text: 'Namaste Rohit ji! We have prime locations available in Sector 35 Chandigarh. Bun Maska & Kulhad Chai format requires 250-350 sq.ft.',
+    imageUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800&fit=crop',
+    status: 'SEEN',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
+
+export const initialNotifications: any[] = [
+  {
+    _id: '65e800000000000000000001',
+    userId: '65e100000000000000000001', // Rohit Sharma
+    type: 'MESSAGE',
+    title: 'New Message from Chai Shai Express',
+    body: 'Namaste Rohit ji! We have prime locations available in Sector 35...',
+    relatedId: '65e600000000000000000001',
+    deepLink: '/chats/65e600000000000000000001',
+    isRead: false,
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    _id: '65e800000000000000000002',
+    userId: '65e100000000000000000002', // Brand Admin
+    type: 'LEAD',
+    title: 'New High-Intent Investor Lead',
+    body: 'Rohit Sharma has requested a video discovery meeting for Chandigarh.',
+    relatedId: '65e300000000000000000001',
+    deepLink: '/brand-portal',
+    isRead: false,
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    _id: '65e800000000000000000003',
+    userId: '65e100000000000000000003', // VIZ Admin
+    type: 'DEAL',
+    title: 'Closed Deal Pending Settlement',
+    body: 'Chai Shai Express closed deal with Rohit Sharma (₹12.0L). 3% Success Fee: ₹42,480.',
+    relatedId: '65e500000000000000000001',
+    deepLink: '/admin-dashboard',
+    isRead: false,
+    createdAt: new Date(Date.now() - 1800000).toISOString(),
+  },
+];
+
 class MemoryStore {
   brands: any[] = [...initialBrands];
   users: any[] = [...initialUsers];
@@ -223,6 +297,9 @@ class MemoryStore {
   leads: any[] = [...initialLeads];
   meetings: any[] = [...initialMeetings];
   deals: any[] = [...initialDeals];
+  conversations: any[] = [...initialConversations];
+  messages: any[] = [...initialMessages];
+  notifications: any[] = [...initialNotifications];
 
   // Helper method to clear all data
   clearAll() {
@@ -232,7 +309,11 @@ class MemoryStore {
     this.meetings = [];
     this.deals = [];
     this.investorProfiles = [];
+    this.conversations = [];
+    this.messages = [];
+    this.notifications = [];
   }
 }
 
 export const inMemoryStore = new MemoryStore();
+

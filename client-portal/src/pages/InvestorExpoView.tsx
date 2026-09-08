@@ -19,14 +19,14 @@ import {
 } from 'lucide-react';
 
 interface InvestorExpoViewProps {
-  onOpenAI: (brand: IBrand) => void;
+  onOpenChat: (brand: IBrand) => void;
   onOpenMeeting: (brand: IBrand) => void;
   onOpenDetails: (brand: IBrand) => void;
   onOpenProfileSetup: () => void;
 }
 
 export const InvestorExpoView: React.FC<InvestorExpoViewProps> = ({
-  onOpenAI,
+  onOpenChat,
   onOpenMeeting,
   onOpenDetails,
   onOpenProfileSetup,
@@ -261,7 +261,7 @@ export const InvestorExpoView: React.FC<InvestorExpoViewProps> = ({
                   key={brand._id}
                   brand={brand}
                   matchScore={matchObj?.matchScore}
-                  onOpenAI={onOpenAI}
+                  onOpenChat={onOpenChat}
                   onOpenMeeting={onOpenMeeting}
                   onOpenDetails={onOpenDetails}
                 />

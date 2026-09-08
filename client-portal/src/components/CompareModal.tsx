@@ -8,20 +8,20 @@ import {
   CheckCircle2,
   XCircle,
   Calendar,
-  Sparkles,
+  MessageSquare,
   Trash2,
   Building,
 } from 'lucide-react';
 
 interface CompareModalProps {
   onClose: () => void;
-  onOpenAI: (brand: IBrand) => void;
+  onOpenChat: (brand: IBrand) => void;
   onOpenMeeting: (brand: IBrand) => void;
 }
 
 export const CompareModal: React.FC<CompareModalProps> = ({
   onClose,
-  onOpenAI,
+  onOpenChat,
   onOpenMeeting,
 }) => {
   const { compareBrandIds, toggleCompareBrand, clearCompare } = useAuth();
@@ -241,12 +241,12 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                         <button
                           onClick={() => {
                             onClose();
-                            onOpenAI(b);
+                            onOpenChat(b);
                           }}
                           className="w-full py-1.5 px-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-semibold flex items-center justify-center gap-1"
                         >
-                          <Sparkles className="w-3 h-3" />
-                          <span>Ask AI</span>
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Chat</span>
                         </button>
                         <button
                           onClick={() => {

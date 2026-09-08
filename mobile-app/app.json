@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "VIZ India Digital Expo",
+    "slug": "viz-india-digital-expo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07090e"
+      }
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "viz-expo"
+  }
+}

@@ -15,7 +15,12 @@ import {
   DollarSign,
   TrendingUp,
   Home,
+  MessageSquare,
 } from 'lucide-react';
+
+import { VizLogo } from './VizLogo';
+import { NotificationCenter } from './NotificationCenter';
+import { useSocket } from '../context/SocketContext';
 
 interface NavbarProps {
   onOpenCompare: () => void;
@@ -31,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role, activePersona, logout, compareBrandIds } = useAuth();
+  const { unreadMessagesCount } = useSocket();
 
   const getRoleBadge = () => {
     switch (role) {
@@ -106,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
             >
               <LogIn className="w-3 h-3" />
-              <span>Sign In / Register</span>
+              <span>Sign In / Launch</span>
             </button>
           )}
         </div>
@@ -115,19 +121,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={handleLogoClick}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 font-black text-xl text-white">
-            V
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg tracking-tight text-white font-['Outfit']">VIZ INDIA</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
-                EXPO 24/7
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 hidden sm:block">Digital B2B Franchise Marketplace</p>
-          </div>
+        <div className="cursor-pointer" onClick={handleLogoClick}>
+          <VizLogo size="md" />
         </div>
 
         {/* Role-Specific Center Navigation Tabs */}
@@ -238,10 +233,33 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </>
           )}
+
+          {/* Direct 1-on-1 Chats (All Logged-in Users) */}
+          {user && (
+            <button
+              onClick={() => navigate('/chats')}
+              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all relative ${
+                isActive('/chats') || location.pathname.startsWith('/chats')
+                  ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 inline mr-1.5 text-blue-400" />
+              <span>Direct Chats</span>
+              {unreadMessagesCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+                  {unreadMessagesCount}
+                </span>
+              )}
+            </button>
+          )}
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
+          {/* In-App Notification Center Bell */}
+          {user && <NotificationCenter />}
+
           {/* Multi-Brand Compare Trigger (Investor Only) */}
           {user && activePersona === 'INVESTOR' && compareBrandIds.length > 0 && (
             <button

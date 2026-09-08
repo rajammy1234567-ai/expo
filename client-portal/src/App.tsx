@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { Navbar } from './components/Navbar';
 import { RequireAuth } from './components/RequireAuth';
 import { LoginModal } from './components/LoginModal';
+import { AuthLandingView } from './pages/AuthLandingView';
 import { PublicLandingView } from './pages/PublicLandingView';
 import { InvestorExpoView } from './pages/InvestorExpoView';
 import { BrandDetailView } from './pages/BrandDetailView';
@@ -11,8 +13,9 @@ import { BrandPortalView } from './pages/BrandPortalView';
 import { AdminDashboardView } from './pages/AdminDashboardView';
 import { MyDealsView } from './pages/MyDealsView';
 import { MyMeetingsView } from './pages/MyMeetingsView';
+import { ChatInboxView } from './pages/ChatInboxView';
 import { UnauthorizedView } from './pages/UnauthorizedView';
-import { AIAssistantModal } from './components/AIAssistantModal';
+import { ChatModal } from './components/ChatModal';
 import { MeetingRequestModal } from './components/MeetingRequestModal';
 import { CompareModal } from './components/CompareModal';
 import { InvestorProfileSetupModal } from './components/InvestorProfileSetupModal';
@@ -29,7 +32,7 @@ const MainApp: React.FC = () => {
   const [loginInitialMode, setLoginInitialMode] = useState<'login' | 'register'>('login');
 
   const [selectedBrand, setSelectedBrand] = useState<IBrand | null>(null);
-  const [aiModalBrand, setAiModalBrand] = useState<IBrand | null>(null);
+  const [chatModalBrand, setChatModalBrand] = useState<IBrand | null>(null);
   const [meetingModalBrand, setMeetingModalBrand] = useState<IBrand | null>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
@@ -47,20 +50,23 @@ const MainApp: React.FC = () => {
     }
   }, [location.state]);
 
+  const getHomeRouteForRole = (userRole?: string) => {
+    const roleUpper = (userRole || '').toUpperCase();
+    if (roleUpper === 'ADMIN' || roleUpper === 'VIZ_ADMIN') {
+      return '/admin-dashboard';
+    } else if (roleUpper === 'BRAND' || roleUpper === 'BRAND_ADMIN') {
+      return '/brand-portal';
+    }
+    return '/expo-floor';
+  };
+
   const handleLoginSuccess = (selectedRole: string) => {
     setShowLoginModal(false);
     const returnTo = (location.state as any)?.returnTo;
     if (returnTo && returnTo !== '/' && returnTo !== '/unauthorized') {
       navigate(returnTo);
     } else {
-      const roleUpper = (selectedRole || '').toUpperCase();
-      if (roleUpper === 'ADMIN' || roleUpper === 'VIZ_ADMIN') {
-        navigate('/admin-dashboard');
-      } else if (roleUpper === 'BRAND' || roleUpper === 'BRAND_ADMIN') {
-        navigate('/brand-portal');
-      } else {
-        navigate('/expo-floor');
-      }
+      navigate(getHomeRouteForRole(selectedRole));
     }
   };
 
@@ -85,14 +91,29 @@ const MainApp: React.FC = () => {
           <BrandDetailView
             brand={selectedBrand}
             onBack={() => setSelectedBrand(null)}
-            onOpenAI={(b) => setAiModalBrand(b)}
+            onOpenChat={(b) => setChatModalBrand(b)}
             onOpenMeeting={(b) => setMeetingModalBrand(b)}
           />
         ) : (
           <Routes>
-            {/* 1. Public Landing Page at '/' */}
+            {/* 1. Launch & Auth Landing Page at '/' (Direct Login & Brand Launch) */}
             <Route
               path="/"
+              element={
+                user ? (
+                  <Navigate to={getHomeRouteForRole(user.role)} replace />
+                ) : (
+                  <AuthLandingView
+                    onSuccess={handleLoginSuccess}
+                    onExploreGuest={() => navigate('/preview')}
+                  />
+                )
+              }
+            />
+
+            {/* Public Expo Preview Mode for Guest Browsing */}
+            <Route
+              path="/preview"
               element={
                 <PublicLandingView
                   onOpenLogin={(role) => handleOpenLogin(role, role ? 'register' : 'login')}
@@ -107,7 +128,7 @@ const MainApp: React.FC = () => {
               element={
                 <RequireAuth allowedRoles={['INVESTOR', 'VIZ_ADMIN']}>
                   <InvestorExpoView
-                    onOpenAI={(b) => setAiModalBrand(b)}
+                    onOpenChat={(b) => setChatModalBrand(b)}
                     onOpenMeeting={(b) => setMeetingModalBrand(b)}
                     onOpenDetails={(b) => setSelectedBrand(b)}
                     onOpenProfileSetup={() => setShowProfileSetup(true)}
@@ -156,10 +177,28 @@ const MainApp: React.FC = () => {
               }
             />
 
-            {/* 7. Dedicated 403 Forbidden Page */}
+            {/* 7. Protected Direct Messaging Inbox */}
+            <Route
+              path="/chats"
+              element={
+                <RequireAuth allowedRoles={['INVESTOR', 'BRAND_ADMIN', 'VIZ_ADMIN']}>
+                  <ChatInboxView />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/chats/:conversationId"
+              element={
+                <RequireAuth allowedRoles={['INVESTOR', 'BRAND_ADMIN', 'VIZ_ADMIN']}>
+                  <ChatInboxView />
+                </RequireAuth>
+              }
+            />
+
+            {/* 8. Dedicated 403 Forbidden Page */}
             <Route path="/unauthorized" element={<UnauthorizedView />} />
 
-            {/* 8. Fallback: Unknown routes redirect to '/' */}
+            {/* 9. Fallback: Unknown routes redirect to '/' */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}
@@ -174,15 +213,12 @@ const MainApp: React.FC = () => {
         initialRole={loginPreferredRole}
       />
 
-      {/* Grounded Brand AI Assistant Modal */}
-      {aiModalBrand && (
-        <AIAssistantModal
-          brand={aiModalBrand}
-          onClose={() => setAiModalBrand(null)}
-          onRequestMeeting={(b) => {
-            setAiModalBrand(null);
-            setMeetingModalBrand(b);
-          }}
+      {/* Real-Time 1-on-1 Direct Chat Modal (Photos + Typing + Presence) */}
+      {chatModalBrand && (
+        <ChatModal
+          isOpen={!!chatModalBrand}
+          brand={chatModalBrand}
+          onClose={() => setChatModalBrand(null)}
         />
       )}
 
@@ -202,9 +238,9 @@ const MainApp: React.FC = () => {
       {showCompareModal && (
         <CompareModal
           onClose={() => setShowCompareModal(false)}
-          onOpenAI={(b) => {
+          onOpenChat={(b) => {
             setShowCompareModal(false);
-            setAiModalBrand(b);
+            setChatModalBrand(b);
           }}
           onOpenMeeting={(b) => {
             setShowCompareModal(false);
@@ -231,7 +267,9 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <MainApp />
+        <SocketProvider>
+          <MainApp />
+        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   );

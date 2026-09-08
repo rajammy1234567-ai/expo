@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { IBrand } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
-  Sparkles,
+  MessageSquare,
   Calendar,
   CheckCircle2,
   Heart,
@@ -12,12 +12,13 @@ import {
   VolumeX,
   Play,
   Building,
+  Sparkles,
 } from 'lucide-react';
 
 interface BrandReelCardProps {
   brand: IBrand;
   matchScore?: number;
-  onOpenAI: (brand: IBrand) => void;
+  onOpenChat: (brand: IBrand) => void;
   onOpenMeeting: (brand: IBrand) => void;
   onOpenDetails: (brand: IBrand) => void;
 }
@@ -25,7 +26,7 @@ interface BrandReelCardProps {
 export const BrandReelCard: React.FC<BrandReelCardProps> = ({
   brand,
   matchScore,
-  onOpenAI,
+  onOpenChat,
   onOpenMeeting,
   onOpenDetails,
 }) => {
@@ -193,11 +194,11 @@ export const BrandReelCard: React.FC<BrandReelCardProps> = ({
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button
-            onClick={() => onOpenAI(brand)}
+            onClick={() => onOpenChat(brand)}
             className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-blue-900/50 to-indigo-900/50 hover:from-blue-800/60 hover:to-indigo-800/60 border border-blue-600/40 text-blue-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            <span>Ask AI Bot</span>
+            <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+            <span>Chat with Founder</span>
           </button>
 
           <button

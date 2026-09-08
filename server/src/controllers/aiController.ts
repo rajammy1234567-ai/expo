@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { AIRagService } from '../services/aiRagService';
 import { Brand } from '../models/Brand';
 import { MatchmakingService } from '../services/matchmakingService';
+import { inMemoryStore } from '../store/inMemoryStore';
 
 export class AIController {
   /**
@@ -35,7 +37,12 @@ export class AIController {
   static async matchInvestorPreferences(req: Request, res: Response) {
     try {
       const { city, budgetBracket, category, model } = req.body;
-      const brands = await Brand.find({ verificationStatus: 'VERIFIED' });
+      let brands: any[] = [];
+      if (mongoose.connection.readyState === 1) {
+        brands = await Brand.find({ verificationStatus: 'VERIFIED' });
+      } else {
+        brands = inMemoryStore.brands.filter((b) => b.verificationStatus === 'VERIFIED');
+      }
 
       let minINR = 1000000;
       let maxINR = 5000000;

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { IBrand, ILead, IDealCommission } from '../types';
 import { brandApi, leadApi, dealApi } from '../services/api';
+import { CreateFranchiseModal } from '../components/CreateFranchiseModal';
+import { CreateDealModal } from '../components/CreateDealModal';
+import { ChatModal } from '../components/ChatModal';
 import {
   Users,
   Calendar,
   DollarSign,
   TrendingUp,
   Building2,
-  Sparkles,
   CheckCircle2,
   Clock,
   ArrowRight,
@@ -17,43 +19,36 @@ import {
   Video,
   FileCheck,
   Award,
+  MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 
 export const BrandPortalView: React.FC = () => {
   const { user } = useAuth();
   const [brand, setBrand] = useState<IBrand | null>(null);
+  const [myBrands, setMyBrands] = useState<IBrand[]>([]);
   const [leads, setLeads] = useState<ILead[]>([]);
   const [deals, setDeals] = useState<IDealCommission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'booth' | 'ai-kb' | 'deals'>('pipeline');
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'my-brands' | 'deals'>('pipeline');
 
-  // New KB Chunk Form
-  const [newQuestion, setNewQuestion] = useState('');
-  const [newAnswer, setNewAnswer] = useState('');
-  const [kbTitle, setKbTitle] = useState('');
-
-  // Record Deal Modal
-  const [showRecordDeal, setShowRecordDeal] = useState(false);
-  const [dealCity, setDealCity] = useState('Chandigarh');
-  const [dealValueINR, setDealValueINR] = useState(3000000);
-  const [selectedLeadId, setSelectedLeadId] = useState('');
-  const [selectedInvestorId, setSelectedInvestorId] = useState('');
-
-  const brandId = user?.brandId || '65e999999999999999999999';
+  // Modals state
+  const [showCreateFranchise, setShowCreateFranchise] = useState(false);
+  const [showCreateDeal, setShowCreateDeal] = useState(false);
+  const [chatTargetLead, setChatTargetLead] = useState<ILead | null>(null);
 
   const loadBrandData = async () => {
     setLoading(true);
     try {
-      // Fetch all brands to locate this brand
       const bRes = await brandApi.getBrands({ verifiedOnly: 'false' });
       if (bRes.data.success && bRes.data.brands.length > 0) {
-        const found = bRes.data.brands.find((b: IBrand) => b._id === user?.brandId) || bRes.data.brands[0];
-        setBrand(found);
+        const userBrand = bRes.data.brands.find((b: IBrand) => b._id === user?.brandId) || bRes.data.brands[0];
+        setBrand(userBrand);
+        setMyBrands(bRes.data.brands.filter((b: IBrand) => b.ownerUserId === user?._id || b._id === user?.brandId));
 
-        // Fetch leads for this brand
         const [lRes, dRes] = await Promise.all([
-          leadApi.getBrandLeads(found._id).catch(() => ({ data: { leads: [] } })),
-          dealApi.getBrandDeals(found._id).catch(() => ({ data: { deals: [] } })),
+          leadApi.getBrandLeads(userBrand._id).catch(() => ({ data: { leads: [] } })),
+          dealApi.getBrandDeals(userBrand._id).catch(() => ({ data: { deals: [] } })),
         ]);
 
         if (lRes.data.leads) setLeads(lRes.data.leads);
@@ -81,50 +76,9 @@ export const BrandPortalView: React.FC = () => {
     }
   };
 
-  const handleAddKB = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!brand || !newQuestion || !newAnswer) return;
-    try {
-      await brandApi.addKBChunk(brand._id, {
-        title: kbTitle || newQuestion,
-        question: newQuestion,
-        answer: newAnswer,
-        sourceType: 'FAQ_MANUAL',
-      });
-      alert('Knowledge base chunk added! AI Bot updated.');
-      setNewQuestion('');
-      setNewAnswer('');
-      setKbTitle('');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleRecordDealSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!brand) return;
-    try {
-      await dealApi.recordDeal({
-        brandId: brand._id,
-        investorId: selectedInvestorId || user?.id,
-        leadId: selectedLeadId || undefined,
-        franchiseCity: dealCity,
-        totalDealValueINR: dealValueINR,
-        commissionRatePercentage: 3.0,
-        brandNotes: `Franchise agreement finalized for ${dealCity}`,
-      });
-      alert('Deal recorded successfully! VIZ 3% commission invoice generated.');
-      setShowRecordDeal(false);
-      loadBrandData();
-    } catch (err) {
-      console.error(err);
-      alert('Error recording deal');
-    }
-  };
-
   const pipelineColumns = [
     { id: 'NEW', title: 'New Leads', color: 'border-blue-500' },
-    { id: 'CONTACTED', title: 'Contacted / AI Chat', color: 'border-cyan-500' },
+    { id: 'CONTACTED', title: 'Contacted / Chat', color: 'border-cyan-500' },
     { id: 'MEETING_SCHEDULED', title: 'Meeting Scheduled', color: 'border-amber-500' },
     { id: 'NEGOTIATION', title: 'Negotiation', color: 'border-purple-500' },
     { id: 'CLOSED_WON', title: 'Closed Won (Deal)', color: 'border-emerald-500' },
@@ -145,10 +99,10 @@ export const BrandPortalView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-white tracking-tight font-['Outfit']">
-                {brand?.brandName || 'Brand Management Portal'}
+                {brand?.brandName || 'Chai Shai Express'}
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                Premium Booth Plan
+                Verified Franchisor Partner
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
@@ -157,13 +111,26 @@ export const BrandPortalView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowRecordDeal(true)}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-        >
-          <Award className="w-4 h-4" />
-          <span>Record Closed Franchise Deal</span>
-        </button>
+        {/* Action Buttons: Add Franchise & Record Deal */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowCreateFranchise(true)}
+            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/25 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Add New Franchise Booth</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateDeal(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all"
+          >
+            <Award className="w-4 h-4" />
+            <span>Record Closed Franchise Deal</span>
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
@@ -171,10 +138,10 @@ export const BrandPortalView: React.FC = () => {
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
           <span className="text-xs text-slate-400 flex items-center gap-1">
             <Users className="w-3.5 h-3.5 text-blue-400" />
-            Total Leads
+            Total Inquiries
           </span>
           <p className="text-2xl font-black text-white">{leads.length}</p>
-          <span className="text-[10px] text-slate-400 font-semibold">Active inquiries</span>
+          <span className="text-[10px] text-slate-400 font-semibold">Active investor leads</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
@@ -215,8 +182,8 @@ export const BrandPortalView: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         {[
           { id: 'pipeline', label: 'Lead & Deals Pipeline' },
-          { id: 'ai-kb', label: 'AI Franchise Bot Trainer' },
-          { id: 'deals', label: `Closed Deals (${deals.length})` },
+          { id: 'my-brands', label: `My Franchise Listings (${myBrands.length || 1})` },
+          { id: 'deals', label: `Closed Deals & Invoices (${deals.length})` },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -272,6 +239,16 @@ export const BrandPortalView: React.FC = () => {
                           📞 {lead.investorSnapshot?.phone}
                         </div>
 
+                        {/* Direct Chat with Investor Button */}
+                        <button
+                          type="button"
+                          onClick={() => setChatTargetLead(lead)}
+                          className="w-full py-1.5 px-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 hover:text-white text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <MessageSquare className="w-3 h-3 text-blue-400" />
+                          <span>Direct Message Investor</span>
+                        </button>
+
                         {/* Stage Mover Dropdown */}
                         <div className="pt-1 flex items-center justify-between text-[10px]">
                           <span className="text-slate-500">Move to:</span>
@@ -297,76 +274,51 @@ export const BrandPortalView: React.FC = () => {
         </div>
       )}
 
-      {/* AI Knowledge Base Trainer */}
-      {activeTab === 'ai-kb' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              <h3 className="font-bold text-white text-base">Train Brand AI Assistant</h3>
-            </div>
-            <p className="text-xs text-slate-400">
-              Upload approved FAQs and financial breakdowns. The AI Franchise Assistant will strictly ground all investor answers on these facts.
-            </p>
-
-            <form onSubmit={handleAddKB} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Topic Title</label>
-                <input
-                  type="text"
-                  value={kbTitle}
-                  onChange={(e) => setKbTitle(e.target.value)}
-                  placeholder="e.g. Master Franchise Rights in Punjab"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Expected Investor Question</label>
-                <input
-                  type="text"
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  placeholder="e.g. Do you offer raw material credit?"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Approved Brand Answer</label>
-                <textarea
-                  value={newAnswer}
-                  onChange={(e) => setNewAnswer(e.target.value)}
-                  rows={4}
-                  placeholder="Enter the official approved answer with historical/estimated disclaimers..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 resize-none"
-                  required
-                ></textarea>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/30"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Save to AI Knowledge Base</span>
-              </button>
-            </form>
+      {/* My Franchise Listings Tab */}
+      {activeTab === 'my-brands' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-white text-base">Your Active Franchise Booths</h3>
+            <button
+              onClick={() => setShowCreateFranchise(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Another Franchise</span>
+            </button>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="font-bold text-white text-base">Current AI Safety Rules & Telemetry</h3>
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                <p className="font-bold text-emerald-400">🛡️ Grounding Safeguard 100%</p>
-                <p className="text-slate-400">AI automatically appends operational disclaimers on ROI and payback.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(myBrands.length > 0 ? myBrands : [brand]).filter(Boolean).map((b: any) => (
+              <div
+                key={b._id}
+                className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={b.logoUrl}
+                      alt={b.brandName}
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-700"
+                    />
+                    <div>
+                      <h4 className="text-sm font-bold text-white">{b.brandName}</h4>
+                      <span className="text-[10px] text-slate-400">{b.category} • {b.businessModel}</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {b.verificationStatus || 'VERIFIED'}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400 line-clamp-2">{b.tagline || b.description}</p>
+
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Investment:</span>
+                  <span className="font-bold text-amber-400">{b.investmentRange?.displayString}</span>
+                </div>
               </div>
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
-                <p className="font-bold text-blue-400">📍 Territorial Exclusivity Trigger</p>
-                <p className="text-slate-400">Directs investors to book Live Meeting if city status is unconfirmed.</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
@@ -374,7 +326,17 @@ export const BrandPortalView: React.FC = () => {
       {/* Closed Deals View */}
       {activeTab === 'deals' && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-          <h3 className="font-bold text-white text-base">Closed Deals & VIZ 3% Commission Status</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-white text-base">Closed Deals & VIZ 3% Commission Status</h3>
+            <button
+              onClick={() => setShowCreateDeal(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs flex items-center gap-1.5"
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>Record New Deal</span>
+            </button>
+          </div>
+
           {deals.length === 0 ? (
             <p className="text-xs text-slate-400">No closed deals registered yet. Use "Record Closed Franchise Deal" button above.</p>
           ) : (
@@ -402,67 +364,35 @@ export const BrandPortalView: React.FC = () => {
         </div>
       )}
 
-      {/* Record Deal Modal */}
-      {showRecordDeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4">
-            <h3 className="font-bold text-white text-base">Record Franchise Deal Closure</h3>
-            <p className="text-xs text-slate-400">
-              Logs successful closure and initiates agreed 3% VIZ success fee reconciliation.
-            </p>
+      {/* Create Franchise Booth Modal */}
+      <CreateFranchiseModal
+        isOpen={showCreateFranchise}
+        onClose={() => setShowCreateFranchise(false)}
+        onCreated={loadBrandData}
+      />
 
-            <form onSubmit={handleRecordDealSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Franchise Territory / City</label>
-                <input
-                  type="text"
-                  value={dealCity}
-                  onChange={(e) => setDealCity(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  required
-                />
-              </div>
+      {/* Record Closed Deal Multi-Step Modal */}
+      <CreateDealModal
+        isOpen={showCreateDeal}
+        onClose={() => setShowCreateDeal(false)}
+        brand={brand}
+        leads={leads}
+        onDealRecorded={loadBrandData}
+      />
 
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Total Agreement Deal Value (INR)</label>
-                <input
-                  type="number"
-                  value={dealValueINR}
-                  onChange={(e) => setDealValueINR(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                  required
-                />
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1">
-                <div className="flex justify-between text-slate-300">
-                  <span>VIZ Agreed Success Fee (3%):</span>
-                  <span className="font-bold text-amber-400">₹{((dealValueINR * 3) / 100).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-slate-400 text-[11px]">
-                  <span>GST (18%):</span>
-                  <span>₹{(((dealValueINR * 3) / 100) * 0.18).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRecordDeal(false)}
-                  className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
-                >
-                  Confirm & Submit
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Direct Chat with Lead Modal */}
+      {chatTargetLead && (
+        <ChatModal
+          isOpen={!!chatTargetLead}
+          onClose={() => setChatTargetLead(null)}
+          targetUserId={
+            (chatTargetLead.investorId as any)?._id ||
+            (chatTargetLead.investorId as any) ||
+            '65e100000000000000000001'
+          }
+          targetUserName={chatTargetLead.investorSnapshot?.name || 'Investor'}
+          brand={brand}
+        />
       )}
     </div>
   );

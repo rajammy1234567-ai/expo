@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -45,7 +45,7 @@ const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
 // Attach Socket.io to request
-app.use((req: any, res, next) => {
+app.use((req: any, res: Response, next: NextFunction) => {
   req.io = io;
   next();
 });

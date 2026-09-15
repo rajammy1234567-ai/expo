@@ -10,14 +10,16 @@ interface AuthContextType {
   activePersona: 'INVESTOR' | 'BRAND' | 'ADMIN';
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; role?: string; message?: string }>;
   registerUser: (data: {
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
+    identifier?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
     password: string;
-    confirmPassword: string;
-  }) => Promise<{ success: boolean; devOtp?: string; userId?: string; message?: string }>;
-  loginWithRole: (role: 'INVESTOR' | 'BRAND' | 'ADMIN') => Promise<void>;
+    confirmPassword?: string;
+  }) => Promise<{ success: boolean; token?: string; user?: any; role?: string; isNewUser?: boolean; devOtp?: string; userId?: string; message?: string }>;
+  updateUserRole: (newRole: 'INVESTOR' | 'BRAND_ADMIN') => Promise<{ success: boolean; role?: string }>;
+  loginWithRole: (role: 'INVESTOR' | 'BRAND' | 'ADMIN') => Promise<{ success: boolean; role?: string; user?: any }>;
   loginWithOTP: (phone: string, otp: string, role: string, name?: string) => Promise<boolean>;
   verifyOTPCode: (payload: { phone?: string; email?: string; otp: string; userId?: string; name?: string; role?: string }) => Promise<{ success: boolean; role?: string; message?: string }>;
   logout: () => void;
@@ -111,19 +113,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const registerUser = async (data: {
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
+    identifier?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
     password: string;
-    confirmPassword: string;
+    confirmPassword?: string;
   }) => {
     setLoading(true);
     try {
       const res = await authApi.register(data);
       if (res.data.success) {
+        if (res.data.token) {
+          setUser(res.data.user);
+          setToken(res.data.token);
+          localStorage.setItem('viz_auth_token', res.data.token);
+        }
         return {
           success: true,
+          token: res.data.token,
+          user: res.data.user,
+          role: res.data.role,
+          isNewUser: res.data.isNewUser,
           devOtp: res.data.devOtp,
           userId: res.data.userId,
           message: res.data.message,
@@ -133,6 +145,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Registration failed';
       return { success: false, message: msg };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserRole = async (newRole: 'INVESTOR' | 'BRAND_ADMIN') => {
+    setLoading(true);
+    try {
+      const res = await authApi.updateRole(newRole);
+      if (res.data.success) {
+        setUser(res.data.user);
+        setToken(res.data.token);
+        localStorage.setItem('viz_auth_token', res.data.token);
+        return { success: true, role: res.data.role };
+      }
+      return { success: false };
+    } catch (err) {
+      console.error('Failed to update role', err);
+      return { success: false };
     } finally {
       setLoading(false);
     }
@@ -172,9 +203,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(res.data.user);
         setToken(res.data.token);
         localStorage.setItem('viz_auth_token', res.data.token);
+        return { success: true, role: res.data.role, user: res.data.user };
       }
-    } catch (err) {
+      throw new Error(res.data.message || 'Demo login failed');
+    } catch (err: any) {
       console.error('Failed to login with role', err);
+      const msg = err.response?.data?.message || err.message || 'Demo login failed';
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
@@ -222,6 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activePersona,
         loginWithPassword,
         registerUser,
+        updateUserRole,
         loginWithRole,
         loginWithOTP,
         verifyOTPCode,

@@ -6,9 +6,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vizexpo.app"
     },
     "android": {
+      "package": "com.vizexpo.app",
       "adaptiveIcon": {
         "backgroundColor": "#07090e"
       }

@@ -5,6 +5,7 @@ import { SocketProvider } from './context/SocketContext';
 import { Navbar } from './components/Navbar';
 import { RequireAuth } from './components/RequireAuth';
 import { LoginModal } from './components/LoginModal';
+import { HomeLandingView } from './pages/HomeLandingView';
 import { AuthLandingView } from './pages/AuthLandingView';
 import { PublicLandingView } from './pages/PublicLandingView';
 import { InvestorExpoView } from './pages/InvestorExpoView';
@@ -36,19 +37,20 @@ const MainApp: React.FC = () => {
   const [meetingModalBrand, setMeetingModalBrand] = useState<IBrand | null>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'CHAT' | 'MEETING'; brand: IBrand } | null>(null);
 
   // Clear brand detail view whenever route path changes
   useEffect(() => {
     setSelectedBrand(null);
   }, [location.pathname]);
 
-  // Open login modal automatically if redirected from RequireAuth
+  // Open login modal automatically if redirected from RequireAuth when targeting protected route
   useEffect(() => {
-    if (location.state && (location.state as any).openSignIn) {
+    if (location.state && (location.state as any).openSignIn && location.pathname !== '/') {
       setLoginInitialMode('login');
       setShowLoginModal(true);
     }
-  }, [location.state]);
+  }, [location.state, location.pathname]);
 
   const getHomeRouteForRole = (userRole?: string) => {
     const roleUpper = (userRole || '').toUpperCase();
@@ -60,8 +62,44 @@ const MainApp: React.FC = () => {
     return '/expo-floor';
   };
 
+  const handleTriggerChat = (brand: IBrand) => {
+    if (!user) {
+      setPendingAction({ type: 'CHAT', brand });
+      setShowLoginModal(true);
+      return;
+    }
+    setChatModalBrand(brand);
+  };
+
+  const handleTriggerMeeting = (brand: IBrand) => {
+    if (!user) {
+      setPendingAction({ type: 'MEETING', brand });
+      setShowLoginModal(true);
+      return;
+    }
+    setMeetingModalBrand(brand);
+  };
+
   const handleLoginSuccess = (selectedRole: string) => {
     setShowLoginModal(false);
+
+    // If user triggered an action as a guest, fulfill it immediately without dumping them to homepage!
+    if (pendingAction) {
+      const action = pendingAction;
+      setPendingAction(null);
+      if (action.type === 'CHAT') {
+        setChatModalBrand(action.brand);
+      } else if (action.type === 'MEETING') {
+        setMeetingModalBrand(action.brand);
+      }
+      return;
+    }
+
+    // If user is currently inspecting a brand detail, preserve the view
+    if (selectedBrand) {
+      return;
+    }
+
     const returnTo = (location.state as any)?.returnTo;
     if (returnTo && returnTo !== '/' && returnTo !== '/unauthorized') {
       navigate(returnTo);
@@ -91,23 +129,22 @@ const MainApp: React.FC = () => {
           <BrandDetailView
             brand={selectedBrand}
             onBack={() => setSelectedBrand(null)}
-            onOpenChat={(b) => setChatModalBrand(b)}
-            onOpenMeeting={(b) => setMeetingModalBrand(b)}
+            onOpenChat={handleTriggerChat}
+            onOpenMeeting={handleTriggerMeeting}
           />
         ) : (
           <Routes>
-            {/* 1. Launch & Auth Landing Page at '/' (Direct Login & Brand Launch) */}
+            {/* 1. Grand B2B Marketplace Home & Landing Page at '/' */}
             <Route
               path="/"
               element={
-                user ? (
-                  <Navigate to={getHomeRouteForRole(user.role)} replace />
-                ) : (
-                  <AuthLandingView
-                    onSuccess={handleLoginSuccess}
-                    onExploreGuest={() => navigate('/preview')}
-                  />
-                )
+                <HomeLandingView
+                  onSuccess={handleLoginSuccess}
+                  onOpenBrandDetails={(b) => setSelectedBrand(b)}
+                  onOpenChat={handleTriggerChat}
+                  onOpenMeeting={handleTriggerMeeting}
+                  onOpenLoginModal={() => handleOpenLogin('INVESTOR', 'login')}
+                />
               }
             />
 
@@ -122,18 +159,16 @@ const MainApp: React.FC = () => {
               }
             />
 
-            {/* 2. Protected Expo Floor (Investor & Admin) */}
+            {/* 2. Expo Floor (Open for Guests, Investors, & Admin) */}
             <Route
               path="/expo-floor"
               element={
-                <RequireAuth allowedRoles={['INVESTOR', 'VIZ_ADMIN']}>
-                  <InvestorExpoView
-                    onOpenChat={(b) => setChatModalBrand(b)}
-                    onOpenMeeting={(b) => setMeetingModalBrand(b)}
-                    onOpenDetails={(b) => setSelectedBrand(b)}
-                    onOpenProfileSetup={() => setShowProfileSetup(true)}
-                  />
-                </RequireAuth>
+                <InvestorExpoView
+                  onOpenChat={handleTriggerChat}
+                  onOpenMeeting={handleTriggerMeeting}
+                  onOpenDetails={(b) => setSelectedBrand(b)}
+                  onOpenProfileSetup={() => setShowProfileSetup(true)}
+                />
               }
             />
 

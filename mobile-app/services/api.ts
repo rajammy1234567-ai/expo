@@ -1,12 +1,17 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// For Android emulator use 10.0.2.2, for iOS/Web localhost, or network IP
-const getBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
+// Dynamically resolves Render backend in production, or computer IP in local dev
+export const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
   }
-  return 'http://localhost:5000/api';
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (host) {
+    return `http://${host}:5000/api`;
+  }
+  return 'http://192.168.31.228:5000/api';
 };
 
 const api = axios.create({
@@ -18,3 +23,4 @@ const api = axios.create({
 });
 
 export default api;
+

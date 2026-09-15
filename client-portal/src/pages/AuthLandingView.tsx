@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
@@ -38,6 +38,14 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
   const navigate = useNavigate();
   const { loginWithRole, loginWithPassword, registerUser, verifyOTPCode } = useAuth();
 
+  // Live Platform Stats
+  const [platformStats, setPlatformStats] = useState<any>({
+    totalGMV: 5500000,
+    verifiedBrands: 6,
+    totalInvestors: 142,
+    closedDeals: 2,
+  });
+
   // Tab State: 'demo' | 'otp' | 'email' | 'register'
   const [activeTab, setActiveTab] = useState<'demo' | 'otp' | 'email' | 'register'>('demo');
 
@@ -51,6 +59,7 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Registration states
   const [regName, setRegName] = useState('');
@@ -64,6 +73,29 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successToast, setSuccessToast] = useState('');
+
+  // Load live statistics from backend
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await authApi.getStats();
+        if (res.data?.success && res.data?.stats) {
+          setPlatformStats(res.data.stats);
+        }
+      } catch (err) {
+        console.warn('Could not load live stats, using fallback', err);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // Cooldown countdown timer for OTP resend
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleRouteRedirect = (targetRole: string) => {
     const roleUpper = (targetRole || '').toUpperCase();
@@ -98,8 +130,8 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
   };
 
   // Request Mobile OTP
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRequestOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!phone || phone.length < 10) {
       setErrorMsg('Please provide a valid 10-digit mobile number.');
       return;
@@ -109,19 +141,20 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
     try {
       const res = await authApi.requestOtp(phone);
       setLoading(false);
-      if (res.data.success) {
-        setOtpStep(true);
-        const code = res.data.devOtp || res.data.otpDemo || '123456';
-        setDevOtpHint(code);
-        setOtpCode(code);
-      } else {
-        setErrorMsg('Could not send OTP. Please try demo login.');
+        if (res.data.success) {
+          setOtpStep(true);
+          setResendCooldown(30);
+          const code = res.data.devOtp || res.data.otpDemo || '123456';
+          setDevOtpHint(code);
+          setOtpCode(code);
+        } else {
+          setErrorMsg('Could not send OTP. Please try demo login.');
+        }
+      } catch (err: any) {
+        setLoading(false);
+        setErrorMsg(err.message || 'Error requesting OTP.');
       }
-    } catch (err: any) {
-      setLoading(false);
-      setErrorMsg(err.message || 'Error requesting OTP.');
-    }
-  };
+    };
 
   // Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -243,6 +276,38 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
             Experience verified virtual expo booths, query grounded AI unit economics,
             and execute bank-grade escrow commitments. Sign in below to enter your workspace.
           </p>
+
+          {/* Live Dynamic Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto pt-2">
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-lg text-center">
+              <span className="text-[11px] text-slate-400 font-semibold block">Total Facilitated GMV</span>
+              <p className="text-xl font-black text-amber-400">
+                ₹{((platformStats.totalGMV || 5500000) / 100000).toFixed(1)} Lakh
+              </p>
+              <span className="text-[10px] text-emerald-400 font-medium">● Live Deal Volume</span>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-lg text-center">
+              <span className="text-[11px] text-slate-400 font-semibold block">Verified Franchises</span>
+              <p className="text-xl font-black text-white">
+                {platformStats.verifiedBrands || 6} Brands
+              </p>
+              <span className="text-[10px] text-blue-400 font-medium">● 100% Vetted KYC</span>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-lg text-center">
+              <span className="text-[11px] text-slate-400 font-semibold block">Active Investors</span>
+              <p className="text-xl font-black text-white">
+                {platformStats.totalInvestors || 142} Registered
+              </p>
+              <span className="text-[10px] text-purple-400 font-medium">● Qualified Buyers</span>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-lg text-center">
+              <span className="text-[11px] text-slate-400 font-semibold block">Executed Agreements</span>
+              <p className="text-xl font-black text-emerald-400">
+                {platformStats.closedDeals || 2} Deals
+              </p>
+              <span className="text-[10px] text-teal-400 font-medium">● 3% Escrow Settled</span>
+            </div>
+          </div>
         </div>
 
         {/* Unified Application Launch Stage (Dual Column) */}
@@ -492,19 +557,19 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-11 h-11 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold text-sm">
-                        CS
+                        VS
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
-                            Chai Shai Express
+                            Vikram Sethi
                           </h4>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                            Brand Partner
+                            Brand Admin (Burger Blast)
                           </span>
                         </div>
                         <p className="text-xs text-slate-400">
-                          14 Investor Leads • ₹3.5L Token Pipeline • Manage Portal
+                          franchise@burgerblast.in • Leads Kanban & Close Deals
                         </p>
                       </div>
                     </div>
@@ -518,19 +583,19 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-11 h-11 rounded-xl bg-amber-600/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-bold text-sm">
-                        DP
+                        VA
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                            Devraj Patel
+                            VIZ Admin
                           </h4>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            VIZ Super Admin
+                            Platform Super Admin
                           </span>
                         </div>
                         <p className="text-xs text-slate-400">
-                          ₹24.5L Commission Ledger • AI Bot Trainer • Full Command
+                          admin@vizexpo.in • KYC Queue & 3% Fee Reconciliation
                         </p>
                       </div>
                     </div>
@@ -648,6 +713,22 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
                           {loading ? 'Verifying...' : 'Verify & Launch App'}
                         </button>
                       </div>
+
+                      {/* Resend Cooldown Counter */}
+                      <div className="pt-1 flex items-center justify-between text-xs text-slate-400">
+                        <span>Didn't receive verification code?</span>
+                        {resendCooldown > 0 ? (
+                          <span className="text-slate-500 font-medium">Resend in {resendCooldown}s</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleRequestOtp()}
+                            className="text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer"
+                          >
+                            Resend Code
+                          </button>
+                        )}
+                      </div>
                     </form>
                   )}
                 </div>
@@ -666,7 +747,7 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="investor@vizindia.com"
+                        placeholder="rohit.sharma@gmail.com"
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder:text-slate-600 text-sm focus:outline-none focus:border-blue-500"
                         required
                       />
@@ -674,18 +755,41 @@ export const AuthLandingView: React.FC<AuthLandingViewProps> = ({
                   </div>
 
                   <div>
-                    <div className="flex justify-between items-center mb-1.5">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-1.5">
                       <label className="text-xs font-semibold text-slate-300">Password</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('investor@vizindia.com');
-                          setPassword('Investor@123');
-                        }}
-                        className="text-[10px] text-cyan-400 hover:underline"
-                      >
-                        Fill Demo Investor Credentials
-                      </button>
+                      <div className="flex flex-wrap gap-1 items-center">
+                        <span className="text-[10px] text-slate-500">Fill demo:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmail('rohit.sharma@gmail.com');
+                            setPassword('Demo@1234');
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] hover:bg-blue-500/30 font-medium"
+                        >
+                          Rohit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmail('franchise@burgerblast.in');
+                            setPassword('Demo@1234');
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] hover:bg-purple-500/30 font-medium"
+                        >
+                          Vikram
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmail('admin@vizexpo.in');
+                            setPassword('Demo@1234');
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] hover:bg-amber-500/30 font-medium"
+                        >
+                          Admin
+                        </button>
+                      </div>
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />

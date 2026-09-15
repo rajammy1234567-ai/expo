@@ -39,20 +39,24 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
+  checkIdentifier: (identifier: string) => api.post('/auth/check-identifier', { identifier }),
   login: (email: string, password: string) => api.post('/auth/login', { email, password }),
   register: (data: {
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
+    identifier?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
     password: string;
-    confirmPassword: string;
+    confirmPassword?: string;
   }) => api.post('/auth/register', data),
   demoLogin: (role: 'INVESTOR' | 'BRAND' | 'ADMIN') => api.post('/auth/demo-login', { role }),
   requestOtp: (phone: string) => api.post('/auth/request-otp', { phone }),
   verifyOtp: (payload: { phone?: string; email?: string; otp: string; name?: string; role?: string; userId?: string }) =>
     api.post('/auth/verify-otp', payload),
+  updateRole: (role: 'INVESTOR' | 'BRAND_ADMIN') => api.post('/auth/update-role', { role }),
   getMe: () => api.get('/auth/me'),
+  getStats: () => api.get('/auth/stats'),
 };
 
 export const brandApi = {
@@ -89,6 +93,7 @@ export const meetingApi = {
 export const dealApi = {
   recordDeal: (data: any) => api.post('/deals/record', data),
   createDeal: (data: any) => api.post('/deals/create', data),
+  getDeals: () => api.get('/deals'),
   getBrandDeals: (brandId: string) => api.get(`/deals/brand/${brandId}`),
 };
 

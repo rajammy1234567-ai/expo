@@ -53,13 +53,19 @@ export class AdminController {
 
   static async updateCommissionStatus(req: any, res: Response) {
     const { dealId } = req.params;
-    const { status, paymentReferenceNo, adminNotes } = req.body;
+    const { status, paymentReferenceNo, bankSettlementRef, adminNotes } = req.body;
     const deal = inMemoryStore.deals.find((d) => d._id === dealId);
     if (deal) {
-      deal.status = status;
-      if (paymentReferenceNo) deal.paymentReferenceNo = paymentReferenceNo;
+      if (status) deal.status = status;
+      const ref = bankSettlementRef || paymentReferenceNo;
+      if (ref) {
+        deal.bankSettlementRef = ref;
+        deal.paymentReferenceNo = ref;
+      }
       if (adminNotes) deal.adminNotes = adminNotes;
-      if (status === 'RECEIVED_SETTLED') deal.settledAt = new Date().toISOString();
+      if (status === 'RECEIVED_SETTLED' && !deal.settledAt) {
+        deal.settledAt = new Date().toISOString();
+      }
       return res.json({ success: true, message: `Commission status updated to ${status}`, deal });
     }
     return res.status(404).json({ success: false, message: 'Deal not found' });

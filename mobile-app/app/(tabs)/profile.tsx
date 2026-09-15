@@ -24,6 +24,7 @@ import {
   EyeOff,
   LogOut,
 } from 'lucide-react-native';
+import { getBaseUrl } from '../../services/api';
 
 export default function MobileProfileScreen() {
   // Current logged in user state
@@ -74,7 +75,7 @@ export default function MobileProfileScreen() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
+      const res = await fetch(`${getBaseUrl()}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, phone, role, password, confirmPassword }),
@@ -100,7 +101,7 @@ export default function MobileProfileScreen() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch(`${getBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -124,7 +125,7 @@ export default function MobileProfileScreen() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetch('http://localhost:5000/api/auth/verify-otp', {
+      const res = await fetch(`${getBaseUrl()}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: otpCode, role, name }),

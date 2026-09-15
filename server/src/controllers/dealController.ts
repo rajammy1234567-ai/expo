@@ -38,7 +38,14 @@ export class DealController {
       phone: '',
       email: '',
     };
-    const financials = CommissionService.calculateDealCommission(Number(totalDealValueINR) || 3000000, Number(commissionRatePercentage) || 3.0);
+
+    const dealValue = Number(totalDealValueINR);
+    if (!dealValue || dealValue <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid positive franchise deal value in INR is required.' });
+    }
+
+    // Server-side enforced fixed 3% fee (never trust client-supplied rates or tax calculations)
+    const financials = CommissionService.calculateDealCommission(dealValue, 3.0);
 
     const count = inMemoryStore.deals.length + 1;
     const deal = {
@@ -53,6 +60,7 @@ export class DealController {
       commissionRatePercentage: financials.commissionRatePercentage,
       calculatedCommissionINR: financials.calculatedCommissionINR,
       taxINR: financials.taxINR,
+      gstAmountINR: financials.taxINR,
       totalInvoiceAmountINR: financials.totalInvoiceAmountINR,
       status: 'PENDING_VERIFICATION',
       invoiceNumber: `VIZ-INV-2026-${String(count).padStart(4, '0')}`,

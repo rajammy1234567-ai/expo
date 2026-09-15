@@ -39,8 +39,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     s.on('connect', () => {
       console.log('⚡ Socket connected:', s.id);
-      if (user?._id) {
-        s.emit('user:online', user._id);
+      const uid = user?._id || user?.id;
+      if (uid) {
+        s.emit('user:online', uid);
       }
     });
 
@@ -57,16 +58,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Update user presence when auth state changes
   useEffect(() => {
-    if (socket && socket.connected && user?._id) {
-      socket.emit('user:online', user._id);
+    const uid = user?._id || user?.id;
+    if (socket && socket.connected && uid) {
+      socket.emit('user:online', uid);
     }
   }, [socket, user]);
 
   // Fetch notifications
   const refreshNotifications = useCallback(async () => {
-    if (!user?._id) return;
+    const uid = user?._id || user?.id;
+    if (!uid) return;
     try {
-      const res = await notificationApi.getNotifications(user._id);
+      const res = await notificationApi.getNotifications(uid);
       if (res.data.success) {
         setNotifications(res.data.notifications || []);
         setUnreadNotifsCount(res.data.unreadCount || 0);

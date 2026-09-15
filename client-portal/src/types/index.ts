@@ -11,7 +11,7 @@ export interface IBrand {
   pitchVideoUrl: string;
   galleryUrls: string[];
   brochurePdfUrl: string;
-  verificationStatus: 'PENDING' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED';
+  verificationStatus: 'PENDING' | 'UNDER_REVIEW' | 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
   verifiedAt?: string;
   isFeatured: boolean;
   featuredRank: number;
@@ -134,10 +134,12 @@ export interface IDealCommission {
   commissionRatePercentage: number;
   calculatedCommissionINR: number;
   taxINR: number;
+  gstAmountINR?: number;
   totalInvoiceAmountINR: number;
-  status: 'PENDING_VERIFICATION' | 'INVOICED' | 'PARTIALLY_PAID' | 'RECEIVED_SETTLED' | 'DISPUTED';
+  status: 'PENDING_INVOICE' | 'INVOICE_SENT' | 'PENDING_VERIFICATION' | 'INVOICED' | 'PARTIALLY_PAID' | 'RECEIVED_SETTLED' | 'DISPUTED';
   invoiceNumber?: string;
   paymentReferenceNo?: string;
+  bankSettlementRef?: string;
   settledAt?: string;
   brandNotes?: string;
   adminNotes?: string;

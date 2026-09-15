@@ -205,7 +205,21 @@ export const BrandPortalView: React.FC = () => {
           {pipelineColumns.map((col) => {
             const colLeads = leads.filter((l) => l.status === col.id);
             return (
-              <div key={col.id} className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 space-y-3 min-w-[240px]">
+              <div
+                key={col.id}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const leadId = e.dataTransfer.getData('text/plain');
+                  if (leadId) {
+                    handleStageChange(leadId, col.id);
+                  }
+                }}
+                className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 space-y-3 min-w-[240px] transition-colors hover:border-purple-500/40"
+              >
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full border-2 ${col.color} bg-white`}></span>
@@ -223,7 +237,12 @@ export const BrandPortalView: React.FC = () => {
                     colLeads.map((lead) => (
                       <div
                         key={lead._id}
-                        className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-purple-500/50 transition-all space-y-2 shadow-sm"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', lead._id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-purple-500/50 transition-all space-y-2 shadow-sm cursor-grab active:cursor-grabbing"
                       >
                         <div className="flex items-start justify-between">
                           <div>

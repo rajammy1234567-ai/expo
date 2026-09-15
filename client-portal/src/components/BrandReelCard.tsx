@@ -30,7 +30,7 @@ export const BrandReelCard: React.FC<BrandReelCardProps> = ({
   onOpenMeeting,
   onOpenDetails,
 }) => {
-  const { savedBrandIds, toggleSavedBrand, compareBrandIds, toggleCompareBrand } = useAuth();
+  const { user, savedBrandIds, toggleSavedBrand, compareBrandIds, toggleCompareBrand } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -106,6 +106,10 @@ export const BrandReelCard: React.FC<BrandReelCardProps> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if (!user) {
+                onOpenChat(brand);
+                return;
+              }
               toggleSavedBrand(brand._id);
             }}
             className={`p-2 rounded-full backdrop-blur-md border transition-all ${
@@ -113,7 +117,7 @@ export const BrandReelCard: React.FC<BrandReelCardProps> = ({
                 ? 'bg-rose-600 text-white border-rose-500 shadow-md'
                 : 'bg-slate-950/70 text-slate-300 border-slate-700 hover:text-white'
             }`}
-            title="Save Brand"
+            title={user ? (isSaved ? 'Remove from Saved' : 'Save Brand') : 'Sign in to Save Brand'}
           >
             <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
           </button>

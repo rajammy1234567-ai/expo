@@ -142,14 +142,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Home</span>
               </button>
               <button
-                onClick={onOpenLoginModal}
-                className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 transition-all"
+                onClick={() => navigate('/expo-floor')}
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive('/expo-floor')
+                    ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                }`}
               >
                 🎬 Verified Expo Floor
               </button>
               <button
-                onClick={onOpenLoginModal}
-                className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 transition-all"
+                onClick={() => navigate('/brand-portal')}
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive('/brand-portal')
+                    ? 'text-white bg-slate-800/80 border border-slate-700 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+                }`}
               >
                 🏢 Franchisor Portal
               </button>
@@ -260,8 +268,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* In-App Notification Center Bell */}
           {user && <NotificationCenter />}
 
-          {/* Multi-Brand Compare Trigger (Investor Only) */}
-          {user && activePersona === 'INVESTOR' && compareBrandIds.length > 0 && (
+          {/* Multi-Brand Compare Trigger (Guests & Investors) */}
+          {compareBrandIds.length > 0 && (
             <button
               onClick={onOpenCompare}
               className="relative px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/30 animate-pulse"

@@ -156,12 +156,23 @@ io.on('connection', (socket) => {
   });
 });
 
-// Server Initialization
 async function startServer() {
   const isConnected = await connectDB();
   
   if (isConnected) {
     console.log('⚡ Connected to database.');
+    try {
+      const brandCount = await Brand.countDocuments();
+      if (brandCount === 0) {
+        console.log('🌱 MongoDB is empty. Seeding initial brands, users, and deals...');
+        await runSeed();
+        console.log('✅ Initial database seed completed successfully!');
+      } else {
+        console.log(`📊 Found ${brandCount} existing brands in MongoDB.`);
+      }
+    } catch (e: any) {
+      console.warn('⚠️ Auto-seed check warning:', e.message);
+    }
   }
 
   server.listen(PORT, () => {

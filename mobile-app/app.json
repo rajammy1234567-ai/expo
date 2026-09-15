@@ -18,6 +18,15 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "viz-expo"
+    "scheme": "viz-expo",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "c9753795-cdd6-4045-9620-aa7c0beda9b8"
+      }
+    },
+    "owner": "viz_eas_001"
   }
 }
